@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#081018"/>
+<title>Veterinary Frontier</title>
+<style>
+:root{--bg:#081018;--surface:#0f1c28;--card:#122636;--card2:#173247;--text:#e7f2f7;--muted:#7f96a6;--accent:#2dd4bf;--accent-dim:#1f9c8c;--gold:#f2c14e;--blue:#4aa8f5;--warn:#e8a045;--danger:#ef5b5b;--radius:16px;--safe-b:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.4;overflow-x:hidden;padding-bottom:calc(72px + var(--safe-b))}
+a{color:var(--accent)}button,input,select{font:inherit;color:inherit}
+.app{max-width:440px;margin:0 auto;min-height:100vh;position:relative}
+.top{position:sticky;top:0;z-index:40;background:linear-gradient(180deg,#0c1a26 0%,var(--bg) 100%);padding:10px 14px 8px;border-bottom:1px solid #16283a}
+.top-row{display:flex;justify-content:space-between;align-items:center}
+.clinic-name{font-weight:700;font-size:.95rem}
+.level-badge{background:var(--card2);border:1px solid #23425c;border-radius:99px;padding:3px 10px;font-size:.72rem;color:var(--gold)}
+.meters{display:flex;gap:6px;margin-top:8px}
+.meter{flex:1;background:var(--surface);border-radius:10px;padding:6px 4px;border:1px solid #16283a;text-align:center}
+.meter .v{font-size:1rem;font-weight:700;color:var(--accent)}.meter .l{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.meter.cash .v{color:var(--gold)}.meter.energy .v{color:var(--blue)}.meter.rep .v{color:#c98af0}
+.xpwrap{margin-top:6px;height:5px;background:#0c1922;border-radius:4px;overflow:hidden}
+.xpbar{height:100%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));transition:width .3s ease}
+.screen{display:none;padding:12px 14px 20px;animation:in .2s ease}.screen.on{display:block}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+h2{font-size:1.15rem;margin-bottom:6px}h3{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px}
+.muted{color:var(--muted);font-size:.84rem}
+.card{background:var(--card);border:1px solid #1c3446;border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.card.glow{border-color:var(--accent-dim);box-shadow:0 0 0 1px var(--accent-dim)}
+.card.warncard{border-color:var(--warn);background:#241d10}
+.card.dangercard{border-color:var(--danger);background:#2a1414}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:13px 14px;border:none;border-radius:12px;font-weight:650;font-size:.94rem;cursor:pointer;background:var(--accent);color:#052018;margin-top:8px;transition:transform .08s}
+.btn:active{transform:scale(.98)}.btn:disabled{opacity:.4;pointer-events:none}
+.btn.sec{background:var(--card2);color:var(--text);border:1px solid #23425c}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid #23425c}
+.btn.danger{background:var(--danger);color:#2a0808}
+.btn.sm{width:auto;display:inline-flex;padding:8px 12px;font-size:.8rem;margin:0}
+.choices{display:grid;gap:8px;margin:10px 0}
+.choice{background:var(--surface);border:2px solid #23425c;border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left}
+.choice:active{border-color:var(--accent);background:#122a3c}
+.choice.picked{border-color:var(--accent);background:#0f3630}
+.choice .t{font-weight:650;font-size:.9rem}.choice .d{font-size:.76rem;color:var(--muted);margin-top:3px}
+.pill{display:inline-block;font-size:.68rem;padding:2px 8px;border-radius:99px;background:#1c3446;color:var(--accent);margin-right:4px;margin-bottom:3px}
+.pill.warn{background:#2a2210;color:var(--warn)}.pill.danger{background:#2a1414;color:var(--danger)}.pill.gold{background:#2a2410;color:var(--gold)}
+.patient-card{background:linear-gradient(145deg,#122636,#0f1c28);border:1px solid #23425c;border-radius:16px;padding:16px;margin:10px 0}
+.patient-card .name{font-size:1.1rem;font-weight:700}
+.patient-card .quote{font-style:italic;color:#a9c7d6;margin:8px 0;font-size:.92rem}
+.vital-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.vital{background:var(--surface);border-radius:10px;padding:8px 10px;border:1px solid #16283a}
+.vital .vv{font-weight:700;font-size:.95rem}.vital .vl{font-size:.65rem;color:var(--muted);text-transform:uppercase}
+.vital.flag{border-color:var(--warn)}.vital.flag .vv{color:var(--warn)}
+.outcome-flash{text-align:center;padding:22px 16px;border-radius:16px;margin:12px 0;animation:pop .3s ease}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:none;opacity:1}}
+.outcome-flash.good{background:#0f3a2e;border:1px solid var(--accent)}
+.outcome-flash.ok{background:#2a2410;border:1px solid var(--warn)}
+.outcome-flash.bad{background:#3a1414;border:1px solid var(--danger)}
+.outcome-flash .big{font-size:1.35rem;font-weight:800;margin-bottom:6px}
+.outcome-flash .rp{font-size:1.05rem;color:var(--gold);margin-top:8px}
+.log-item{background:var(--surface);border-radius:12px;padding:10px 12px;margin-bottom:8px;border-left:3px solid var(--accent);font-size:.85rem}
+.log-item .when{font-size:.68rem;color:var(--muted)}
+.bar-wrap{background:#0c1922;border-radius:6px;height:8px;overflow:hidden;margin-top:4px}
+.bar{height:100%;background:var(--accent);border-radius:6px;transition:width .4s ease}
+.bar.fatigue{background:var(--warn)}.bar.stress{background:var(--danger)}
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:#0a1621;border-top:1px solid #16283a;display:flex;max-width:440px;margin:0 auto;padding:4px 0 calc(4px + var(--safe-b))}
+.nav button{flex:1;background:none;border:none;color:var(--muted);padding:8px 2px;font-size:.6rem;cursor:pointer}
+.nav button.on{color:var(--accent)}.nav .ico{font-size:1.15rem;display:block;margin-bottom:1px}
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#122a3c;border:1px solid var(--accent);color:var(--text);padding:10px 18px;border-radius:12px;font-size:.86rem;font-weight:600;z-index:100;opacity:0;pointer-events:none;transition:opacity .25s;max-width:90%;text-align:center}
+.toast.show{opacity:1}
+.safe{background:#181510;border:1px solid #4a3a18;color:#c8b880;border-radius:10px;padding:10px;font-size:.76rem;margin:10px 0}
+label{display:block;font-size:.75rem;color:var(--muted);margin:8px 0 4px}
+input,select{width:100%;background:var(--surface);border:1px solid #23425c;border-radius:10px;padding:10px 12px;outline:none}
+.empty{text-align:center;padding:26px 12px;color:var(--muted)}
+.tabrow{display:grid;gap:6px;margin-bottom:10px}
+.tabrow.t2{grid-template-columns:1fr 1fr}.tabrow.t3{grid-template-columns:1fr 1fr 1fr}
+.ctab{text-align:center;padding:9px 4px;cursor:pointer}
+.ctab.on{border-color:var(--gold);background:#241c08}
+.staffcard{display:flex;gap:10px;align-items:center}
+.staffcard .av{font-size:1.6rem;width:40px;text-align:center}
+.staffcard .info{flex:1}
+.staffcard .role{font-size:.72rem;color:var(--muted)}
+.invrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #16283a}
+.invrow:last-child{border-bottom:none}
+.step-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#23425c;margin:0 3px}.step-dot.on{background:var(--accent)}
+.quest-card.done{border-color:var(--gold);background:#241f0c}
+.quest-card.locked{opacity:.5}
+.urgtag{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:99px}
+.urgtag.Routine{background:#123a2c;color:var(--accent)}.urgtag.Urgent{background:#2a2210;color:var(--warn)}.urgtag.Emergency{background:#2a1212;color:var(--danger)}
+select{-webkit-appearance:none;appearance:none}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top">
+<div class="top-row"><div class="clinic-name" id="clinicNameEl">Paws &amp; Portals Veterinary Center</div><div class="level-badge" id="levelBadge">Level 1</div></div>
+<div class="meters">
+<div class="meter cash"><div class="v" id="mCash">$0</div><div class="l">Cash</div></div>
+<div class="meter rep"><div class="v" id="mRep">50</div><div class="l">Rep</div></div>
+<div class="meter energy"><div class="v" id="mEnergy">100</div><div class="l">Energy</div></div>
+<div class="meter"><div class="v" id="mDay">1</div><div class="l">Day</div></div>
+</div>
+<div class="xpwrap"><div class="xpbar" id="xpBar" style="width:0%"></div></div>
+</div>
+
+<section id="sc-home" class="screen on">
+<div class="card glow"><div class="muted" style="font-size:.74rem">CLINIC STATUS</div><div id="atmosphere" style="font-weight:650;margin-top:4px">The waiting room is quiet.</div><div class="muted" style="margin-top:8px;font-size:.8rem">Stress <span id="stressLabel">10</span>/100</div><div class="bar-wrap"><div class="bar stress" id="stressBar" style="width:10%"></div></div></div>
+<div class="card" id="lowStockCard" style="display:none"></div>
+<div class="card" id="queueSummaryCard"></div>
+<button class="btn" onclick="go('queue')">🩺 See today's queue</button>
+<button class="btn sec" onclick="endDay()">☕ Rest &amp; advance to next day</button>
+<div class="card" id="questPreviewCard"></div>
+<div class="card" id="storyPreviewCard"></div>
+<div class="safe">Fictional educational simulation. All patients, diagnoses, and outcomes are invented for gameplay — not real veterinary guidance.</div>
+</section>
+
+<section id="sc-queue" class="screen">
+<h2>Today's Queue</h2>
+<p class="muted" style="margin-bottom:10px">Tap a patient to begin their visit.</p>
+<div id="queueList"></div>
+</section>
+
+<section id="sc-exam" class="screen">
+<div class="muted" style="font-size:.74rem;margin-bottom:4px">APPOINTMENT · STEP <span id="examStepNum">1</span>/5</div>
+<div style="margin:4px 0 10px"><span class="step-dot on" id="ed1"></span><span class="step-dot" id="ed2"></span><span class="step-dot" id="ed3"></span><span class="step-dot" id="ed4"></span><span class="step-dot" id="ed5"></span></div>
+<div class="patient-card" id="examPatientCard"></div>
+<div id="examBody"></div>
+</section>
+
+<section id="sc-result" class="screen">
+<div id="resultBox"></div>
+<div id="resultExtra"></div>
+<button class="btn" onclick="endExam()">Back to clinic</button>
+</section>
+
+<section id="sc-patients" class="screen">
+<h2>Patient Records</h2>
+<div class="tabrow t2" style="margin-bottom:6px">
+<select id="patSpeciesFilter" onchange="renderPatients()"><option value="All">All species</option></select>
+<select id="patSortSel" onchange="renderPatients()"><option value="recent">Sort: Recent visit</option><option value="name">Sort: Name</option><option value="wellness">Sort: Wellness</option></select>
+</div>
+<div id="patientList"></div>
+</section>
+
+<section id="sc-inventory" class="screen">
+<h2>Inventory</h2>
+<div class="card" style="display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-weight:650;font-size:.88rem">Auto-restock at day end</div><div class="muted" style="font-size:.75rem">Buys items below reorder level automatically</div></div>
+<button class="btn sm sec" id="autoRestockBtn" onclick="toggleAutoRestock()">On</button>
+</div>
+<div id="inventoryList"></div>
+</section>
+
+<section id="sc-staff" class="screen">
+<h2>Staff</h2>
+<p class="muted" style="margin-bottom:10px">Fatigue slows performance. Rest costs Energy.</p>
+<div id="staffList"></div>
+</section>
+
+<section id="sc-more" class="screen">
+<h2>Clinic Office</h2>
+<div class="tabrow t3">
+<div class="choice ctab on" id="mtabQuests" onclick="switchMoreTab('quests')"><div class="t" style="font-size:.78rem">🎯 Quests</div></div>
+<div class="choice ctab" id="mtabLog" onclick="switchMoreTab('log')"><div class="t" style="font-size:.78rem">📖 Log</div></div>
+<div class="choice ctab" id="mtabSettings" onclick="switchMoreTab('settings')"><div class="t" style="font-size:.78rem">⚙️ Settings</div></div>
+</div>
+<div id="moreQuests"></div>
+<div id="moreLog" style="display:none"></div>
+<div id="moreSettings" style="display:none">
+<div class="card">
+<label>Clinic name</label><input id="inClinicName"/>
+<button class="btn sm" style="margin-top:10px" onclick="saveClinicName()">Save name</button>
+</div>
+<div class="card">
+<p style="font-weight:650;margin-bottom:6px">Save data</p>
+<button class="btn sec" onclick="exportSave()">📤 Export save file</button>
+<label style="margin-top:10px">Import save file</label>
+<input type="file" id="importFile" accept=".json" onchange="importSave(event)"/>
+</div>
+<button class="btn danger" onclick="if(confirm('Reset all progress? This cannot be undone.')){localStorage.removeItem('vetfrontier1');location.reload()}">Reset everything</button>
+</div>
+</section>
+
+</div>
+
+<nav class="nav">
+<button class="on" data-s="home" onclick="go('home')"><span class="ico">🏥</span>Clinic</button>
+<button data-s="queue" onclick="go('queue')"><span class="ico">📅</span>Queue</button>
+<button data-s="patients" onclick="go('patients')"><span class="ico">📋</span>Patients</button>
+<button data-s="inventory" onclick="go('inventory')"><span class="ico">📦</span>Stock</button>
+<button data-s="staff" onclick="go('staff')"><span class="ico">👩‍⚕️</span>Staff</button>
+<button data-s="more" onclick="go('more')"><span class="ico">🎯</span>More</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- STATIC DATA (from Veterinary Frontier spreadsheet) ---------- */
+const SPECIES=["Dog","Cat","Rabbit","Bird","Reptile","Ferret","Horse"];
+const SPECIES_EMOJI={Dog:"🐶",Cat:"🐱",Rabbit:"🐰",Bird:"🐦",Reptile:"🦎",Ferret:"🐾",Horse:"🐴"};
+const BREEDS={Dog:["Border Collie","Great Dane","Labrador","Beagle","Dachshund","Corgi"],Cat:["Domestic Shorthair","Siamese","Maine Coon","Persian","Tabby"],Rabbit:["Mini Rex","Holland Lop","Flemish Giant"],Bird:["Cockatiel","Parakeet","African Grey"],Reptile:["Bearded Dragon","Leopard Gecko","Ball Python"],Ferret:["Standard Ferret"],Horse:["Quarter Horse","Shetland Pony"]};
+const PET_NAMES=["Miso","Bramble","Nova","Atlas","Pepper","Juniper","Biscuit","Sable","Comet","Willow","Ziggy","Clover","Maple","Finn","Luna","Otto","Pixel","Marble","Hazel","Bolt","Ash","Fig","Rye","Poppy"];
+const CLIENT_NAMES=["Avery Morgan","Jordan Lee","Riley Chen","Sam Okafor","Devon Park","Casey Bloom","Reese Alden","Micah Fields","Toni Reyes","Harper Diaz","Kit Nguyen","Robin Voss"];
+const TEMPERAMENTS=["Calm","Anxious","Skittish","Gentle","Playful","Stoic"];
+const ATMOS=["The waiting room is quiet.","A light rain taps the clinic windows.","Reception phones keep ringing this morning.","Sunlight fills the lobby. Smells like antiseptic and coffee.","A slow start to the day.","Someone's dog is very excited about the treat jar."];
+
+const DIAGNOSES=[
+{id:"DX001",name:"Wellness / No Disease",species:["Any"],severity:"Low",baseProb:0.40,signs:["Normal appetite","Normal vitals","Bright and alert"],distractSigns:["Cough","Stiffness after activity"],tests:["Physical exam"],txClass:"Preventive",cost:35,recovery:0,procedure:"PR001"},
+{id:"DX002",name:"Gastrointestinal Upset",species:["Dog","Cat","Ferret"],severity:"Moderate",baseProb:0.18,signs:["Vomiting","Diarrhea","Reduced appetite"],distractSigns:["Nasal discharge","Bad breath"],tests:["CBC","Chemistry"],txClass:"Supportive",cost:90,recovery:5,procedure:null},
+{id:"DX003",name:"Fictional Arthritic Flare",species:["Dog","Cat","Horse"],severity:"Moderate",baseProb:0.12,signs:["Stiffness after activity","Pain on movement"],distractSigns:["Vomiting","Nasal discharge"],tests:["X-ray","Joint exam"],txClass:"Mobility",cost:160,recovery:14,procedure:null},
+{id:"DX004",name:"Respiratory Infection",species:["Dog","Cat","Rabbit","Bird"],severity:"Moderate",baseProb:0.10,signs:["Cough","Nasal discharge"],distractSigns:["Diarrhea","Pain on movement"],tests:["CBC","Respiratory panel"],txClass:"Respiratory",cost:130,recovery:10,procedure:null},
+{id:"DX005",name:"Dental Disease",species:["Dog","Cat","Rabbit"],severity:"Moderate",baseProb:0.15,signs:["Bad breath","Reduced appetite"],distractSigns:["Cough","Stiffness after activity"],tests:["Dental exam","Dental imaging"],txClass:"Dental",cost:220,recovery:7,procedure:"PR002"},
+{id:"DX006",name:"Critical Multi-System Event",species:["Any"],severity:"Critical",baseProb:0.05,signs:["Abnormal vitals","Collapse","Severe dehydration"],distractSigns:["Reduced appetite","Bad breath"],tests:["CBC","Chemistry","Imaging"],txClass:"Emergency",cost:650,recovery:21,procedure:"PR004"}
+];
+const PROCEDURES=[
+{id:"PR001",name:"Wellness Vaccination",cat:"Preventive",lvl:1,cost:45,dur:15,risk:"Low",recovery:0,consumables:["I001","I002"],staffNeeded:1,success:0.99},
+{id:"PR002",name:"Dental Cleaning",cat:"Dental",lvl:1,cost:280,dur:90,risk:"Moderate",recovery:7,consumables:["I006","I005"],staffNeeded:1,success:0.96},
+{id:"PR003",name:"Soft Tissue Surgery",cat:"Surgery",lvl:2,cost:750,dur:180,risk:"High",recovery:14,consumables:["I004","I005"],staffNeeded:2,success:0.91},
+{id:"PR004",name:"Emergency Stabilization",cat:"Emergency",lvl:1,cost:500,dur:60,risk:"High",recovery:3,consumables:["I003"],staffNeeded:2,success:0.84},
+{id:"PR005",name:"Advanced Orthopedic Repair",cat:"Surgery",lvl:3,cost:1800,dur:300,risk:"Very High",recovery:42,consumables:["I004","I005"],staffNeeded:3,success:0.82}
+];
+const ITEMS_META={
+I001:{name:"Vaccine Dose",cat:"Pharmacy",unitCost:12,value:45,reorder:10},
+I002:{name:"Syringe",cat:"Consumable",unitCost:0.3,value:1,reorder:25},
+I003:{name:"IV Fluids",cat:"Emergency",unitCost:8,value:35,reorder:6},
+I004:{name:"Suture Pack",cat:"Surgical",unitCost:25,value:90,reorder:4},
+I005:{name:"Anesthetic Kit",cat:"Anesthesia",unitCost:60,value:180,reorder:3},
+I006:{name:"Dental Pack",cat:"Dental",unitCost:40,value:120,reorder:2}
+};
+const STAFF_META=[
+{id:"S001",name:"Dr. Mira Stone",role:"Veterinarian",wage:75,specialty:"Internal Medicine",cert:"DVM",skills:{Medicine:9,Surgery:7,Anesthesia:6,Diagnostics:9,Exotics:3,Dentistry:5,ClientCare:8,Leadership:9}},
+{id:"S002",name:"Dr. Kai Rivers",role:"Veterinarian",wage:68,specialty:"Exotic &amp; Dental",cert:"DVM",skills:{Medicine:8,Surgery:5,Anesthesia:5,Diagnostics:8,Exotics:10,Dentistry:9,ClientCare:9,Leadership:7}},
+{id:"S003",name:"Sam Ortega",role:"Veterinary Technician",wage:32,specialty:"Anesthesia",cert:"CVT",skills:{Medicine:5,Surgery:8,Anesthesia:10,Diagnostics:7,Exotics:3,Dentistry:5,ClientCare:7,Leadership:5}},
+{id:"S004",name:"Quinn Patel",role:"Veterinary Technician",wage:28,specialty:"Laboratory",cert:"CVT",skills:{Medicine:6,Surgery:4,Anesthesia:6,Diagnostics:10,Exotics:5,Dentistry:5,ClientCare:7,Leadership:4}},
+{id:"S005",name:"Morgan Vale",role:"Receptionist",wage:24,specialty:"Client Care",cert:"Certified",skills:{Medicine:2,Surgery:1,Anesthesia:1,Diagnostics:3,Exotics:2,Dentistry:2,ClientCare:10,Leadership:6}},
+{id:"S006",name:"Taylor Brooks",role:"Kennel Assistant",wage:20,specialty:"Patient Care",cert:"Internal",skills:{Medicine:4,Surgery:3,Anesthesia:3,Diagnostics:4,Exotics:5,Dentistry:2,ClientCare:7,Leadership:3}}
+];
+const STAFF_AVATAR={Veterinarian:"👩‍⚕️","Veterinary Technician":"🧑‍🔬",Receptionist:"🗂",  "Kennel Assistant":"🧹"};
+const RANDOM_EVENTS=[
+{id:"EV001",name:"Shelter Surge",trigger:"any",prob:0.20,story:"A sudden fictional shelter transfer brings several patients.",choices:[
+ {label:"Accept all",cash:-500,rep:5,energy:-10,stress:8,extraAppts:2},
+ {label:"Accept one",cash:-200,rep:2,energy:-4,stress:3,extraAppts:1},
+ {label:"Decline",cash:0,rep:-2,energy:0,stress:0,extraAppts:0}]},
+{id:"EV002",name:"Equipment Failure",trigger:"procedureDay",prob:0.12,story:"A diagnostic machine fails at the worst possible moment.",choices:[
+ {label:"Repair now",cash:-1200,rep:0,energy:-5,stress:8},
+ {label:"Rent replacement",cash:-600,rep:-1,energy:-3,stress:4},
+ {label:"Delay repairs",cash:0,rep:-3,energy:0,stress:2}]},
+{id:"EV003",name:"Mystery Benefactor",trigger:"repHigh",prob:0.08,story:"A fictional donor offers an anonymous clinic grant.",choices:[
+ {label:"Accept grant",cash:5000,rep:5,energy:3,stress:-4},
+ {label:"Return grant",cash:0,rep:8,energy:0,stress:-1},
+ {label:"Investigate first",cash:2000,rep:2,energy:-2,stress:1}]},
+{id:"EV004",name:"Night Emergency",trigger:"random",prob:0.15,story:"An emergency arrives after hours.",choices:[
+ {label:"Treat",cash:-350,rep:4,energy:-15,stress:10},
+ {label:"Refer elsewhere",cash:0,rep:-2,energy:0,stress:0},
+ {label:"Ask them to wait",cash:0,rep:-4,energy:-5,stress:5}]}
+];
+const QUEST_META=[
+{id:"Q001",name:"Healthy Start",statKey:"wellnessVisits",target:5,rewardCash:750,rewardRep:5,rewardXP:100,story:"Build trust by keeping routine patients healthy.",unlockLevel:1},
+{id:"Q002",name:"Diagnostic Detective",statKey:"labTests",target:10,rewardCash:1200,rewardRep:8,rewardXP:150,story:"Solve fictional medical mysteries through diagnostics.",unlockLevel:1},
+{id:"Q003",name:"Surgical Mastery",statKey:"surgeries",target:5,rewardCash:3000,rewardRep:12,rewardXP:300,story:"Unlocks after reaching Clinic Level 2.",unlockLevel:2},
+{id:"Q004",name:"Community Guardian",statKey:"emergencies",target:8,rewardCash:2500,rewardRep:15,rewardXP:250,story:"Become the neighborhood's fictional emergency clinic.",unlockLevel:1}
+];
+const LEVEL_XP=[0,150,400,800,1400,2200,3200,4600];
+const SEED_CLIENTS=[{id:"C001",name:"Avery Morgan",trust:75},{id:"C002",name:"Jordan Lee",trust:55},{id:"C003",name:"Riley Chen",trust:90}];
+const SEED_PATIENTS=[
+{id:"P001",clientId:"C001",name:"Miso",species:"Cat",breed:"Domestic Shorthair",sex:"F",age:4,weight:4.6,temperament:"Calm",wellness:92,visits:0,lastDx:"",lastOutcome:""},
+{id:"P002",clientId:"C002",name:"Bramble",species:"Dog",breed:"Border Collie",sex:"M",age:7,weight:21.5,temperament:"Anxious",wellness:70,visits:0,lastDx:"",lastOutcome:""},
+{id:"P003",clientId:"C003",name:"Nova",species:"Rabbit",breed:"Mini Rex",sex:"F",age:2,weight:2.1,temperament:"Skittish",wellness:84,visits:0,lastDx:"",lastOutcome:""},
+{id:"P004",clientId:"C001",name:"Atlas",species:"Dog",breed:"Great Dane",sex:"M",age:5,weight:54.0,temperament:"Gentle",wellness:76,visits:0,lastDx:"",lastOutcome:""}
+];
+
+/* ---------- STATE ---------- */
+let S=null;
+function defaultState(){return{
+clinicName:"Paws & Portals Veterinary Center",
+day:1,cash:50000,reputation:50,energy:100,stress:10,level:1,xp:0,
+staffState:Object.fromEntries(STAFF_META.map((s,i)=>[s.id,{fatigue:[20,15,25,30,10,18][i]||15,morale:[88,91,84,79,86,82][i]||85}])),
+inventory:Object.fromEntries(Object.keys(ITEMS_META).map(id=>[id,{onHand:{I001:24,I002:100,I003:18,I004:12,I005:8,I006:6}[id]}])),
+patients:JSON.parse(JSON.stringify(SEED_PATIENTS)),
+clients:JSON.parse(JSON.stringify(SEED_CLIENTS)),
+queue:[],
+medicalLog:[],financeLog:[],storyLog:["Clinic opens its doors for the first time."],
+stats:{wellnessVisits:0,labTests:0,surgeries:0,emergencies:0,completedVisits:0,proceduresToday:0},
+quests:Object.fromEntries(QUEST_META.map(q=>[q.id,{progress:0,claimed:false}])),
+autoRestock:true,
+nextPatientNum:5,nextClientNum:4,nextApptNum:1,nextRecordNum:1,
+moreTab:"quests",patFilter:"All",patSort:"recent",
+lastTick:Date.now()
+}}
+let session=null;
+
+/* ---------- PERSISTENCE ---------- */
+function load(){
+  try{const r=localStorage.getItem("vetfrontier1");S=r?Object.assign(defaultState(),JSON.parse(r)):defaultState();}catch(e){S=defaultState();}
+  if(!S.queue||!S.queue.length)generateQueue();
+}
+function save(){localStorage.setItem("vetfrontier1",JSON.stringify(S));ui();}
+function exportSave(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="veterinary-frontier-save.json";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast("💾 Save exported");
+}
+function importSave(evt){
+  const file=evt.target.files&&evt.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      S=Object.assign(defaultState(),data);
+      save();go("home");toast("💾 Save imported");
+    }catch(err){toast("Could not read that save file");}
+  };
+  reader.readAsText(file);
+}
+
+/* ---------- HELPERS ---------- */
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function fmt(n){return "$"+Math.round(n).toLocaleString()}
+function clamp(n,a,b){return Math.max(a,Math.min(b,n))}
+function levelFromXP(xp){let lvl=1;for(let i=1;i<LEVEL_XP.length;i++){if(xp>=LEVEL_XP[i])lvl=i+1}return lvl}
+function xpIntoLevel(){const lvl=S.level;const cur=LEVEL_XP[lvl-1]||0;const next=LEVEL_XP[lvl]||(cur+1500);return{cur,next,pct:clamp(((S.xp-cur)/(next-cur))*100,0,100)}}
+function staffMeta(id){return STAFF_META.find(s=>s.id===id)}
+function speciesEligible(dx,species){return dx.species.includes("Any")||dx.species.includes(species)}
+
+/* ---------- PATIENT / CLIENT / QUEUE GENERATION ---------- */
+function makeNewPatient(){
+  const species=pick(SPECIES);
+  const client=Math.random()<0.5&&S.clients.length?pick(S.clients):makeNewClient();
+  const p={id:"P"+String(S.nextPatientNum++).padStart(3,"0"),clientId:client.id,name:pick(PET_NAMES),species,breed:pick(BREEDS[species]),sex:pick(["M","F"]),age:1+Math.floor(Math.random()*10),weight:Math.round((species==="Horse"?350+Math.random()*200:species==="Bird"?0.1+Math.random()*0.4:species==="Reptile"?0.2+Math.random()*2:1+Math.random()*30)*10)/10,temperament:pick(TEMPERAMENTS),wellness:60+Math.floor(Math.random()*35),visits:0,lastDx:"",lastOutcome:""};
+  S.patients.push(p);return p;
+}
+function makeNewClient(){
+  const c={id:"C"+String(S.nextClientNum++).padStart(3,"0"),name:pick(CLIENT_NAMES),trust:50+Math.floor(Math.random()*40)};
+  S.clients.push(c);return c;
+}
+function weightedDiagnosis(species){
+  const pool=DIAGNOSES.filter(d=>speciesEligible(d,species));
+  const total=pool.reduce((a,d)=>a+d.baseProb,0);
+  let r=Math.random()*total;
+  for(const d of pool){r-=d.baseProb;if(r<=0)return d}
+  return pool[0];
+}
+function generateQueue(){
+  const count=3+Math.floor(Math.random()*3);
+  S.queue=[];
+  for(let i=0;i<count;i++){
+    const usePatient=S.patients.length&&Math.random()<0.65;
+    const patient=usePatient?pick(S.patients):makeNewPatient();
+    const client=S.clients.find(c=>c.id===patient.clientId)||makeNewClient();
+    const dx=weightedDiagnosis(patient.species);
+    const urgency=dx.severity==="Critical"?"Emergency":(dx.severity==="Moderate"&&Math.random()<0.5?"Urgent":"Routine");
+    const visitType=dx.id==="DX001"?"Wellness Exam":dx.id==="DX005"?"Dental Consult":dx.id==="DX006"?"Emergency":"Illness Exam";
+    const baseFee=Math.round((dx.severity==="Low"?55:dx.severity==="Moderate"?100:170)+Math.random()*25);
+    S.queue.push({apptId:"A"+String(S.nextApptNum++).padStart(4,"0"),patientId:patient.id,clientId:client.id,visitType,urgency,complaint:pick(dx.signs),trueDxId:dx.id,fee:baseFee,done:false});
+  }
+  S.queue.sort((a,b)=>({Emergency:0,Urgent:1,Routine:2}[a.urgency]-{Emergency:0,Urgent:1,Routine:2}[b.urgency]));
+}
+
+/* ---------- NAVIGATION ---------- */
+function go(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));
+  document.getElementById("sc-"+name).classList.add("on");
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on",b.dataset.s===name));
+  if(name==="queue")renderQueue();
+  if(name==="patients")renderPatients();
+  if(name==="inventory")renderInventory();
+  if(name==="staff")renderStaff();
+  if(name==="more"){switchMoreTab(S.moreTab||"quests");document.getElementById("inClinicName").value=S.clinicName}
+  if(name==="home")ui();
+  window.scrollTo(0,0);
+}
+
+/* ---------- UI REFRESH ---------- */
+function ui(){
+  document.getElementById("clinicNameEl").textContent=S.clinicName;
+  S.level=levelFromXP(S.xp);
+  document.getElementById("levelBadge").textContent="Level "+S.level;
+  document.getElementById("mCash").textContent=fmt(S.cash);
+  document.getElementById("mRep").textContent=Math.round(S.reputation);
+  document.getElementById("mEnergy").textContent=Math.round(S.energy);
+  document.getElementById("mDay").textContent=S.day;
+  const xi=xpIntoLevel();document.getElementById("xpBar").style.width=xi.pct+"%";
+  document.getElementById("stressLabel").textContent=Math.round(S.stress);
+  document.getElementById("stressBar").style.width=clamp(S.stress,0,100)+"%";
+  document.getElementById("atmosphere").textContent=ATMOS[(S.day-1)%ATMOS.length];
+  const low=lowStockItems();
+  const lc=document.getElementById("lowStockCard");
+  if(low.length){lc.style.display="";lc.className="card warncard";lc.innerHTML="<strong>⚠️ Low stock</strong><p class=\"muted\" style=\"margin-top:4px\">"+low.map(i=>ITEMS_META[i.id].name).join(", ")+"</p>";}
+  else{lc.style.display="none"}
+  const remaining=S.queue.filter(a=>!a.done).length;
+  document.getElementById("queueSummaryCard").innerHTML="<div class=\"muted\" style=\"font-size:.74rem\">TODAY'S QUEUE</div><div style=\"font-weight:700;margin-top:4px;font-size:1rem\">"+remaining+" appointment"+(remaining!==1?"s":"")+" waiting</div>";
+  const activeQuest=QUEST_META.find(q=>q.unlockLevel<=S.level&&!S.quests[q.id].claimed);
+  document.getElementById("questPreviewCard").innerHTML=activeQuest?("<div class=\"muted\" style=\"font-size:.74rem\">ACTIVE QUEST</div><div style=\"font-weight:650;margin-top:4px\">🎯 "+activeQuest.name+"</div><div class=\"muted\" style=\"font-size:.78rem;margin-top:2px\">"+Math.min(S.quests[activeQuest.id].progress,activeQuest.target)+"/"+activeQuest.target+" · "+activeQuest.story+"</div>"):"<div class=\"muted\">All available quests complete. Nice work.</div>";
+  document.getElementById("storyPreviewCard").innerHTML="<div class=\"muted\" style=\"font-size:.74rem\">LATEST</div><div style=\"margin-top:4px;font-size:.85rem\">"+(S.storyLog[S.storyLog.length-1]||"")+"</div>";
+}
+function lowStockItems(){return Object.keys(ITEMS_META).map(id=>({id,onHand:S.inventory[id].onHand,reorder:ITEMS_META[id].reorder})).filter(i=>i.onHand<=i.reorder)}
+
+/* ---------- QUEUE SCREEN ---------- */
+function renderQueue(){
+  const el=document.getElementById("queueList");
+  const items=S.queue.filter(a=>!a.done);
+  if(!items.length){el.innerHTML="<div class=\"empty\">No patients waiting.<br>Rest to advance to the next day.</div>";return}
+  el.innerHTML=items.map(a=>{
+    const p=S.patients.find(x=>x.id===a.patientId);
+    const c=S.clients.find(x=>x.id===a.clientId);
+    return "<div class=\"card\" style=\"cursor:pointer\" onclick=\"startAppointment('"+a.apptId+"')\"><div style=\"display:flex;justify-content:space-between;align-items:flex-start\"><div><div style=\"font-weight:700\">"+SPECIES_EMOJI[p.species]+" "+p.name+" <span class=\"muted\" style=\"font-weight:400;font-size:.78rem\">· "+p.breed+"</span></div><div class=\"muted\" style=\"font-size:.8rem;margin-top:2px\">Owner: "+(c?c.name:"Unknown")+"</div></div><span class=\"urgtag "+a.urgency+"\">"+a.urgency+"</span></div><div style=\"margin-top:8px\"><span class=\"pill\">"+a.visitType+"</span><span class=\"pill gold\">"+fmt(a.fee)+"</span></div><div class=\"muted\" style=\"margin-top:6px;font-size:.82rem\">\u201c"+a.complaint+"\u201d</div></div>";
+  }).join("");
+}
+
+/* ---------- APPOINTMENT / EXAM FLOW ---------- */
+function startAppointment(apptId){
+  const appt=S.queue.find(a=>a.apptId===apptId);if(!appt)return;
+  const patient=S.patients.find(p=>p.id===appt.patientId);
+  const client=S.clients.find(c=>c.id===appt.clientId);
+  const trueDx=DIAGNOSES.find(d=>d.id===appt.trueDxId);
+  session={appt,patient,client,trueDx,step:1,foundSigns:[],diagnosisId:null,diagnosisCorrect:false,labRun:false,labBonus:0,score:0,treatmentType:null,procedureId:null,assignedStaffId:null};
+  document.getElementById("examPatientCard").innerHTML="<div class=\"name\">"+SPECIES_EMOJI[patient.species]+" "+patient.name+"</div><div style=\"margin-top:4px\"><span class=\"pill\">"+patient.species+"</span><span class=\"pill\">"+patient.breed+"</span><span class=\"pill\">"+patient.age+"y</span><span class=\"pill\">"+patient.weight+"kg</span></div><div class=\"quote\">\u201c"+appt.complaint+"\u201d</div><div class=\"muted\">Owner: "+(client?client.name:"Unknown")+" · "+appt.visitType+" · <span class=\"urgtag "+appt.urgency+"\">"+appt.urgency+"</span></div>";
+  setExamStep(1);
+  examTriage();
+  go("exam");
+}
+function setExamStep(n){
+  session.step=n;
+  document.getElementById("examStepNum").textContent=n;
+  [1,2,3,4,5].forEach(i=>document.getElementById("ed"+i).classList.toggle("on",i<=n));
+}
+function vitalsFor(dx,species){
+  const abnormal=dx.severity!=="Low";
+  const critical=dx.severity==="Critical";
+  return{
+    temp:{v:(critical?40.5+Math.random():abnormal?39.2+Math.random()*0.6:38.3+Math.random()*0.4).toFixed(1)+"°C",flag:abnormal},
+    hr:{v:Math.round(critical?170+Math.random()*30:abnormal?110+Math.random()*20:90+Math.random()*20)+" bpm",flag:critical},
+    rr:{v:Math.round(critical?38+Math.random()*10:abnormal?26+Math.random()*8:18+Math.random()*8)+"/min",flag:abnormal},
+    hydration:{v:critical?"Severe dehydration":abnormal?"Mild dehydration":"Normal",flag:abnormal}
+  };
+}
+function examTriage(){
+  const box=document.getElementById("examBody");
+  const v=vitalsFor(session.trueDx,session.patient.species);
+  session.vitals=v;
+  box.innerHTML="<div class=\"card\"><p class=\"muted\" style=\"font-size:.74rem\">TRIAGE VITALS</p><div class=\"vital-grid\">"+
+    "<div class=\"vital"+(v.temp.flag?" flag":"")+"\"><div class=\"vv\">"+v.temp.v+"</div><div class=\"vl\">Temperature</div></div>"+
+    "<div class=\"vital"+(v.hr.flag?" flag":"")+"\"><div class=\"vv\">"+v.hr.v+"</div><div class=\"vl\">Heart rate</div></div>"+
+    "<div class=\"vital"+(v.rr.flag?" flag":"")+"\"><div class=\"vv\">"+v.rr.v+"</div><div class=\"vl\">Resp. rate</div></div>"+
+    "<div class=\"vital"+(v.hydration.flag?" flag":"")+"\"><div class=\"vv\">"+v.hydration.v+"</div><div class=\"vl\">Hydration</div></div>"+
+    "</div></div><button class=\"btn\" onclick=\"examPhysical()\">Begin physical exam</button>";
+}
+function examPhysical(){
+  setExamStep(2);
+  const dx=session.trueDx;
+  const options=[...new Set([...dx.signs,...dx.distractSigns])].slice(0,5).sort(()=>Math.random()-0.5);
+  session.physicalOptions=options;
+  const box=document.getElementById("examBody");
+  box.innerHTML="<div class=\"card\"><p style=\"font-weight:650\">What do you observe?</p><p class=\"muted\" style=\"margin-top:4px\">Select every sign that applies, then confirm.</p></div>"+
+    "<div class=\"choices\" id=\"signChoices\">"+options.map((s,i)=>"<div class=\"choice\" id=\"sign"+i+"\" onclick=\"toggleSign("+i+")\"><div class=\"t\">"+s+"</div></div>").join("")+"</div>"+
+    "<button class=\"btn\" onclick=\"confirmFindings()\">Confirm findings</button>";
+}
+function toggleSign(i){
+  const s=session.physicalOptions[i];
+  const el=document.getElementById("sign"+i);
+  if(session.foundSigns.includes(s)){session.foundSigns=session.foundSigns.filter(x=>x!==s);el.classList.remove("picked")}
+  else{session.foundSigns.push(s);el.classList.add("picked")}
+}
+function confirmFindings(){
+  const dx=session.trueDx;
+  const correct=session.foundSigns.filter(s=>dx.signs.includes(s)).length;
+  const wrong=session.foundSigns.filter(s=>!dx.signs.includes(s)).length;
+  session.score+=correct*2-wrong;
+  examDiagnosis();
+}
+function examDiagnosis(){
+  setExamStep(3);
+  const dx=session.trueDx;
+  const pool=DIAGNOSES.filter(d=>speciesEligible(d,session.patient.species)&&d.id!==dx.id).sort(()=>Math.random()-0.5).slice(0,2);
+  const opts=[dx,...pool].sort(()=>Math.random()-0.5);
+  session.diagnosisOptions=opts;
+  const box=document.getElementById("examBody");
+  box.innerHTML="<div class=\"card\"><p style=\"font-weight:650\">What's your working diagnosis?</p></div>"+
+    "<div class=\"choices\">"+opts.map((d,i)=>"<div class=\"choice\" onclick=\"pickDiagnosis("+i+")\"><div class=\"t\">"+d.name+"</div><div class=\"d\">"+d.severity+" severity</div></div>").join("")+"</div>";
+}
+function pickDiagnosis(i){
+  const d=session.diagnosisOptions[i];
+  session.diagnosisId=d.id;
+  session.diagnosisCorrect=d.id===session.trueDx.id;
+  session.score+=session.diagnosisCorrect?3:-1;
+  const box=document.getElementById("examBody");
+  box.innerHTML+="<div class=\"card"+(session.diagnosisCorrect?" glow":"")+"\">"+(session.diagnosisCorrect?"✓ Findings support this diagnosis.":"△ Plausible, but not the strongest match to the vitals and signs.")+"</div>"+
+    "<button class=\"btn\" onclick=\"examLab()\">Continue to diagnostics</button>";
+}
+function examLab(){
+  setExamStep(4);
+  const chosenDx=DIAGNOSES.find(d=>d.id===session.diagnosisId);
+  const cost=Math.round(30+chosenDx.cost*0.25);
+  const box=document.getElementById("examBody");
+  box.innerHTML="<div class=\"card\"><p style=\"font-weight:650\">Run diagnostics?</p><p class=\"muted\" style=\"margin-top:4px\">Recommended: "+chosenDx.tests.join(", ")+" · "+fmt(cost)+"</p></div>"+
+    "<button class=\"btn\" onclick=\"runLab("+cost+")\">🧪 Run recommended test</button>"+
+    "<button class=\"btn sec\" onclick=\"skipLab()\">Skip diagnostics</button>";
+}
+function runLab(cost){
+  S.cash-=cost;S.stats.labTests++;
+  session.labRun=true;
+  const correct=session.diagnosisCorrect;
+  session.labBonus=correct?2:-1;
+  session.score+=session.labBonus;
+  S.storyLog.push("Lab work run for "+session.patient.name+".");
+  const box=document.getElementById("examBody");
+  box.innerHTML="<div class=\"card"+(correct?" glow":"")+"\"><strong>Results:</strong> "+(correct?"Consistent with your working diagnosis.":"Findings are ambiguous — the picture doesn't fully fit.")+"</div>"+
+    "<button class=\"btn\" onclick=\"examTreatment()\">Continue to treatment</button>";
+  save();
+}
+function skipLab(){examTreatment()}
+function examTreatment(){
+  setExamStep(5);
+  const dx=DIAGNOSES.find(d=>d.id===session.diagnosisId);
+  const proc=dx.procedure?PROCEDURES.find(p=>p.id===dx.procedure):null;
+  const box=document.getElementById("examBody");
+  let html="<div class=\"card\"><p style=\"font-weight:650\">Treatment class: "+dx.txClass+"</p><p class=\"muted\" style=\"margin-top:4px\">Choose how to proceed.</p></div><div class=\"choices\">";
+  html+="<div class=\"choice\" onclick=\"chooseTreatment('medication',null)\"><div class=\"t\">💊 Medication plan</div><div class=\"d\">Standard care · "+fmt(dx.cost)+" · low risk</div></div>";
+  if(proc&&S.level>=proc.lvl){
+    html+="<div class=\"choice\" onclick=\"chooseTreatment('procedure','"+proc.id+"')\"><div class=\"t\">🩺 Perform "+proc.name+"</div><div class=\"d\">"+fmt(proc.cost)+" · Risk: "+proc.risk+" · Success ~"+Math.round(proc.success*100)+"%</div></div>";
+  }else if(proc){
+    html+="<div class=\"choice\" style=\"opacity:.5;cursor:default\"><div class=\"t\">🔒 "+proc.name+"</div><div class=\"d\">Requires Clinic Level "+proc.lvl+"</div></div>";
+  }
+  html+="</div>";
+  box.innerHTML=html;
+}
+function bestAvailableStaff(skillKey,count){
+  return STAFF_META.slice().sort((a,b)=>{
+    const fa=S.staffState[a.id].fatigue,fb=S.staffState[b.id].fatigue;
+    const sa=(a.skills[skillKey]||0)-fa*0.05;
+    const sb=(b.skills[skillKey]||0)-fb*0.05;
+    return sb-sa;
+  }).slice(0,count);
+}
+function chooseTreatment(type,procId){
+  session.treatmentType=type;session.procedureId=procId;
+  if(type==="medication"){resolveAppointment();return}
+  const proc=PROCEDURES.find(p=>p.id===procId);
+  const skillKey=proc.cat==="Surgery"?"Surgery":proc.cat==="Dental"?"Dentistry":proc.cat==="Emergency"?"Medicine":"Medicine";
+  const assigned=bestAvailableStaff(skillKey,proc.staffNeeded);
+  session.assignedStaff=assigned.map(s=>s.id);
+  resolveAppointment();
+}
+function resolveAppointment(){
+  const dx=DIAGNOSES.find(d=>d.id===session.diagnosisId);
+  const patient=session.patient,appt=session.appt;
+  let revenue=appt.fee,repChange=0,xpGain=15,outcome="Stable",success=true,flavor="";
+  if(session.treatmentType==="procedure"){
+    const proc=PROCEDURES.find(p=>p.id===session.procedureId);
+    const staffBonus=(session.assignedStaff||[]).reduce((a,id)=>{const m=staffMeta(id);const fat=S.staffState[id].fatigue;return a+((m.skills.Medicine||5)-5)*0.01-fat*0.001},0);
+    const scoreBonus=session.diagnosisCorrect?0.03:-0.04;
+    const chance=clamp(proc.success+staffBonus+scoreBonus,0.35,0.99);
+    success=Math.random()<chance;
+    revenue+=proc.cost;
+    (proc.consumables||[]).forEach(id=>{S.inventory[id].onHand=Math.max(0,S.inventory[id].onHand-1)});
+    (session.assignedStaff||[]).forEach(id=>{S.staffState[id].fatigue=clamp(S.staffState[id].fatigue+(proc.cat==="Surgery"?18:12),0,100)});
+    S.stats.proceduresToday++;
+    if(proc.cat==="Surgery")S.stats.surgeries++;
+    if(proc.cat==="Emergency")S.stats.emergencies++;
+    if(success){
+      outcome=proc.cat==="Emergency"?"Stabilized":"Successful procedure";
+      repChange=proc.cat==="Emergency"?6:4;xpGain=proc.cat==="Emergency"?80:60;
+      patient.wellness=clamp(patient.wellness+12,0,100);
+      flavor=patient.name+"'s "+proc.name.toLowerCase()+" went smoothly.";
+    }else{
+      outcome=proc.cat==="Emergency"?"Critical complication":"Complication during procedure";
+      repChange=proc.cat==="Emergency"?-6:-4;xpGain=15;revenue=Math.round(revenue*0.4);
+      patient.wellness=clamp(patient.wellness-15,0,100);
+      S.stress=clamp(S.stress+10,0,100);
+      flavor="Something went wrong. The team stabilized the situation, but it wasn't the outcome anyone wanted.";
+    }
+  }else{
+    revenue+=dx.cost;
+    const goodCall=session.diagnosisCorrect;
+    outcome=goodCall?"Improving":"Stable, monitor";
+    repChange=goodCall?3:0;
+    xpGain=goodCall?35:15;
+    patient.wellness=clamp(patient.wellness+(goodCall?8:2),0,100);
+    flavor=goodCall?patient.name+" responds well to the "+dx.txClass.toLowerCase()+" plan.":patient.name+" is stable. Recovery may take longer without a confirmed diagnosis.";
+    if(dx.id==="DX001")S.stats.wellnessVisits++;
+  }
+  S.cash+=revenue;S.reputation=clamp(S.reputation+repChange,0,100);S.xp+=xpGain;
+  S.energy=clamp(S.energy-6,0,100);
+  patient.visits++;patient.lastDx=dx.name;patient.lastOutcome=outcome;
+  S.stats.completedVisits++;
+  appt.done=true;
+  const record={id:"MR"+String(S.nextRecordNum++).padStart(4,"0"),day:S.day,patientId:patient.id,patientName:patient.name,diagnosis:dx.name,diagnosisCorrect:session.diagnosisCorrect,treatment:session.treatmentType,outcome,revenue};
+  S.medicalLog.unshift(record);
+  S.financeLog.unshift({day:S.day,type:"Income",category:appt.visitType,amount:revenue,note:patient.name+" · "+dx.name});
+  S.storyLog.push(patient.name+" ("+dx.name+"): "+outcome+".");
+  checkLevelUp();
+  checkQuests();
+  save();
+  const cls=success&&(session.treatmentType!=="procedure"||outcome!=="Critical complication")?(outcome.includes("Complication")||outcome.includes("Critical")?"bad":"good"):"bad";
+  const icon=cls==="good"?"✅":(cls==="bad"?"⚠️":"➖");
+  document.getElementById("resultBox").innerHTML="<div class=\"outcome-flash "+cls+"\"><div class=\"big\">"+icon+" "+outcome+"</div><div>"+flavor+"</div><div class=\"rp\">+"+fmt(revenue)+" · Rep "+(repChange>=0?"+":"")+repChange+" · +"+xpGain+" XP</div></div>";
+  document.getElementById("resultExtra").innerHTML="<div class=\"card\"><p class=\"muted\" style=\"font-size:.74rem\">RECORD</p><p style=\"font-weight:700\">"+dx.name+"</p><p class=\"muted\" style=\"margin-top:4px\">"+(session.diagnosisCorrect?"Diagnosis matched the case.":"Alternative diagnosis selected.")+" · Wellness now "+patient.wellness+"/100</p></div>";
+  go("result");
+}
+function endExam(){session=null;go("home")}
+
+/* ---------- PATIENTS SCREEN ---------- */
+function renderPatients(){
+  const filterSel=document.getElementById("patSpeciesFilter");
+  if(filterSel.options.length<=1){SPECIES.forEach(sp=>{const o=document.createElement("option");o.value=sp;o.textContent=sp;filterSel.appendChild(o)})}
+  filterSel.value=S.patFilter||"All";
+  document.getElementById("patSortSel").value=S.patSort||"recent";
+  const el=document.getElementById("patientList");
+  let list=S.patients.slice();
+  if(filterSel.value!=="All")list=list.filter(p=>p.species===filterSel.value);
+  const sortMode=document.getElementById("patSortSel").value;
+  if(sortMode==="name")list.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sortMode==="wellness")list.sort((a,b)=>a.wellness-b.wellness);
+  else list.sort((a,b)=>b.visits-a.visits);
+  if(!list.length){el.innerHTML="<div class=\"empty\">No patients match this view.</div>";return}
+  el.innerHTML=list.map(p=>{
+    const c=S.clients.find(x=>x.id===p.clientId);
+    return "<div class=\"card\"><div style=\"display:flex;justify-content:space-between\"><div><strong>"+SPECIES_EMOJI[p.species]+" "+p.name+"</strong><div class=\"muted\" style=\"font-size:.78rem\">"+p.breed+" · "+p.age+"y · "+p.sex+"</div></div><div style=\"text-align:right\"><div class=\"muted\" style=\"font-size:.72rem\">WELLNESS</div><div style=\"font-weight:700;color:"+(p.wellness>=75?"var(--accent)":p.wellness>=50?"var(--warn)":"var(--danger)")+"\">"+p.wellness+"</div></div></div>"+
+    "<div class=\"muted\" style=\"font-size:.78rem;margin-top:6px\">Owner: "+(c?c.name:"Unknown")+" · "+p.visits+" visit"+(p.visits!==1?"s":"")+"</div>"+
+    (p.lastDx?"<div class=\"muted\" style=\"font-size:.78rem;margin-top:2px\">Last: "+p.lastDx+" — "+p.lastOutcome+"</div>":"")+
+    "</div>";
+  }).join("");
+  S.patFilter=filterSel.value;S.patSort=sortMode;
+}
+
+/* ---------- INVENTORY SCREEN ---------- */
+function renderInventory(){
+  document.getElementById("autoRestockBtn").textContent=S.autoRestock?"On":"Off";
+  const el=document.getElementById("inventoryList");
+  el.innerHTML=Object.keys(ITEMS_META).map(id=>{
+    const meta=ITEMS_META[id];const onHand=S.inventory[id].onHand;
+    const status=onHand<=meta.reorder?(onHand===0?"Critical":"Low"):"OK";
+    const statusClass=status==="OK"?"":(status==="Low"?"warn":"danger");
+    const restockQty=Math.max(meta.reorder*2-onHand,5);
+    const restockCost=Math.round(restockQty*meta.unitCost);
+    return "<div class=\"card\"><div class=\"invrow\"><div><strong>"+meta.name+"</strong><div class=\"muted\" style=\"font-size:.75rem\">"+meta.cat+" · On hand: "+onHand+"</div></div><span class=\"pill"+(statusClass?" "+statusClass:"")+"\">"+status+"</span></div>"+
+    "<button class=\"btn sm sec\" style=\"margin-top:8px\" onclick=\"restockItem('"+id+"',"+restockQty+","+restockCost+")\">Restock +"+restockQty+" for "+fmt(restockCost)+"</button></div>";
+  }).join("");
+}
+function restockItem(id,qty,cost){
+  if(S.cash<cost){toast("Not enough cash");return}
+  S.cash-=cost;S.inventory[id].onHand+=qty;
+  S.financeLog.unshift({day:S.day,type:"Expense",category:"Inventory",amount:cost,note:"Restocked "+ITEMS_META[id].name});
+  toast("📦 Restocked "+ITEMS_META[id].name);
+  save();renderInventory();
+}
+function toggleAutoRestock(){S.autoRestock=!S.autoRestock;save();renderInventory();toast(S.autoRestock?"Auto-restock on":"Auto-restock off")}
+
+/* ---------- STAFF SCREEN ---------- */
+function renderStaff(){
+  const el=document.getElementById("staffList");
+  el.innerHTML=STAFF_META.map(s=>{
+    const st=S.staffState[s.id];
+    return "<div class=\"card\"><div class=\"staffcard\"><div class=\"av\">"+(STAFF_AVATAR[s.role]||"🧑")+"</div><div class=\"info\"><strong>"+s.name+"</strong><div class=\"role\">"+s.role+" · "+s.specialty+"</div></div></div>"+
+    "<div class=\"muted\" style=\"font-size:.75rem;margin-top:8px\">Fatigue "+Math.round(st.fatigue)+"/100</div><div class=\"bar-wrap\"><div class=\"bar fatigue\" style=\"width:"+st.fatigue+"%\"></div></div>"+
+    "<div class=\"muted\" style=\"font-size:.75rem;margin-top:6px\">Morale "+Math.round(st.morale)+"/100</div><div class=\"bar-wrap\"><div class=\"bar\" style=\"width:"+st.morale+"%\"></div></div>"+
+    "<button class=\"btn sm sec\" style=\"margin-top:10px\" onclick=\"restStaff('"+s.id+"')\" "+(st.fatigue<5?"disabled":"")+">☕ Give a break (−2 Energy)</button></div>";
+  }).join("");
+}
+function restStaff(id){
+  if(S.energy<2){toast("Not enough clinic energy");return}
+  S.energy-=2;S.staffState[id].fatigue=clamp(S.staffState[id].fatigue-30,0,100);
+  toast(staffMeta(id).name+" took a break");
+  save();renderStaff();
+}
+
+/* ---------- MORE: QUESTS / LOG / SETTINGS ---------- */
+function switchMoreTab(tab){
+  S.moreTab=tab;
+  document.getElementById("moreQuests").style.display=tab==="quests"?"":"none";
+  document.getElementById("moreLog").style.display=tab==="log"?"":"none";
+  document.getElementById("moreSettings").style.display=tab==="settings"?"":"none";
+  document.getElementById("mtabQuests").classList.toggle("on",tab==="quests");
+  document.getElementById("mtabLog").classList.toggle("on",tab==="log");
+  document.getElementById("mtabSettings").classList.toggle("on",tab==="settings");
+  if(tab==="quests")renderQuests();
+  if(tab==="log")renderStoryLog();
+}
+function renderQuests(){
+  const el=document.getElementById("moreQuests");
+  el.innerHTML=QUEST_META.map(q=>{
+    const st=S.quests[q.id];const locked=q.unlockLevel>S.level;
+    const prog=Math.min(st.progress,q.target);
+    return "<div class=\"card quest-card"+(st.claimed?" done":"")+(locked?" locked":"")+"\"><div style=\"display:flex;justify-content:space-between\"><strong>"+q.name+"</strong>"+(st.claimed?"<span class=\"pill gold\">Complete</span>":locked?"<span class=\"pill\">Lvl "+q.unlockLevel+"</span>":"<span class=\"pill\">"+prog+"/"+q.target+"</span>")+"</div>"+
+    "<p class=\"muted\" style=\"margin-top:4px;font-size:.8rem\">"+q.story+"</p>"+
+    "<div class=\"bar-wrap\"><div class=\"bar\" style=\"width:"+(prog/q.target*100)+"%\"></div></div>"+
+    "<p class=\"muted\" style=\"margin-top:6px;font-size:.75rem\">Reward: "+fmt(q.rewardCash)+" · +"+q.rewardRep+" Rep · +"+q.rewardXP+" XP</p></div>";
+  }).join("");
+}
+function renderStoryLog(){
+  const el=document.getElementById("moreLog");
+  const entries=S.storyLog.slice().reverse().slice(0,60);
+  el.innerHTML=entries.length?entries.map(e=>"<div class=\"log-item\">"+e+"</div>").join(""):"<div class=\"empty\">No events yet.</div>";
+}
+function saveClinicName(){S.clinicName=document.getElementById("inClinicName").value||"Paws & Portals Veterinary Center";save();toast("Saved")}
+
+/* ---------- QUESTS / LEVEL CHECKS ---------- */
+function checkQuests(){
+  QUEST_META.forEach(q=>{
+    const st=S.quests[q.id];
+    if(st.claimed||q.unlockLevel>S.level)return;
+    st.progress=S.stats[q.statKey]||0;
+    if(st.progress>=q.target){
+      st.claimed=true;S.cash+=q.rewardCash;S.reputation=clamp(S.reputation+q.rewardRep,0,100);S.xp+=q.rewardXP;
+      S.storyLog.push("Quest complete: "+q.name+" (+"+fmt(q.rewardCash)+", +"+q.rewardRep+" Rep, +"+q.rewardXP+" XP).");
+      toast("🎯 Quest complete: "+q.name);
+      checkLevelUp();
+    }
+  });
+}
+function checkLevelUp(){
+  const newLevel=levelFromXP(S.xp);
+  if(newLevel>S.level){S.level=newLevel;toast("⭐ Clinic reached Level "+newLevel);S.storyLog.push("The clinic reached Level "+newLevel+".")}
+}
+
+/* ---------- DAY ADVANCEMENT ---------- */
+function endDay(){
+  const remaining=S.queue.filter(a=>!a.done).length;
+  if(remaining>0&&!confirm(remaining+" patient(s) still waiting today. End the day anyway?"))return;
+  Object.keys(S.staffState).forEach(id=>{S.staffState[id].fatigue=clamp(S.staffState[id].fatigue-25,0,100)});
+  if(S.autoRestock){
+    lowStockItems().forEach(item=>{
+      const meta=ITEMS_META[item.id];const qty=meta.reorder*2-item.onHand;const cost=Math.round(qty*meta.unitCost);
+      if(qty>0&&S.cash>=cost){S.cash-=cost;S.inventory[item.id].onHand+=qty;S.financeLog.unshift({day:S.day,type:"Expense",category:"Inventory",amount:cost,note:"Auto-restocked "+meta.name});S.storyLog.push("Auto-restocked "+meta.name+".")}
+    });
+  }
+  const payroll=STAFF_META.reduce((a,s)=>a+s.wage*8,0);
+  S.cash-=payroll;
+  S.financeLog.unshift({day:S.day,type:"Expense",category:"Payroll",amount:payroll,note:"Daily staff wages"});
+  S.energy=clamp(S.energy+40,0,100);
+  S.stress=clamp(S.stress-8+(remaining>0?10:0),0,100);
+  S.stats.proceduresToday=0;
+  S.day++;
+  maybeTriggerEvent();
+}
+function maybeTriggerEvent(){
+  const proceduresHappened=S.medicalLog.some(r=>r.day===S.day-1&&r.treatment==="procedure");
+  const eligible=RANDOM_EVENTS.filter(ev=>{
+    if(ev.trigger==="procedureDay")return proceduresHappened;
+    if(ev.trigger==="repHigh")return S.reputation>70;
+    return true;
+  });
+  const ev=eligible.find(e=>Math.random()<e.prob);
+  if(ev){showEvent(ev)}else{finishDayAdvance()}
+}
+function showEvent(ev){
+  document.getElementById("resultBox").innerHTML="<div class=\"outcome-flash ok\"><div class=\"big\">📰 "+ev.name+"</div><div>"+ev.story+"</div></div>";
+  document.getElementById("resultExtra").innerHTML="<div class=\"choices\">"+ev.choices.map((c,i)=>"<div class=\"choice\" onclick=\"resolveEvent("+i+",'"+ev.id+"')\"><div class=\"t\">"+c.label+"</div><div class=\"d\">"+(c.cash?((c.cash>0?"+":"")+fmt(c.cash)+" · "):"")+(c.rep?"Rep "+(c.rep>0?"+":"")+c.rep+" · ":"")+"Energy "+(c.energy>=0?"+":"")+c.energy+" · Stress "+(c.stress>=0?"+":"")+c.stress+"</div></div>").join("")+"</div>";
+  window._pendingEvent=ev;
+  document.querySelector("#sc-result .btn").style.display="none";
+  go("result");
+}
+function resolveEvent(i,evId){
+  const ev=window._pendingEvent;const c=ev.choices[i];
+  S.cash+=c.cash||0;S.reputation=clamp(S.reputation+(c.rep||0),0,100);S.energy=clamp(S.energy+(c.energy||0),0,100);S.stress=clamp(S.stress+(c.stress||0),0,100);
+  if(c.extraAppts){for(let i2=0;i2<c.extraAppts;i2++){const patient=Math.random()<0.5&&S.patients.length?pick(S.patients):makeNewPatient();const client=S.clients.find(x=>x.id===patient.clientId)||makeNewClient();const dx=weightedDiagnosis(patient.species);S.queue.push({apptId:"A"+String(S.nextApptNum++).padStart(4,"0"),patientId:patient.id,clientId:client.id,visitType:"Emergency",urgency:"Urgent",complaint:pick(dx.signs),trueDxId:dx.id,fee:120,done:false})}}
+  S.storyLog.push(ev.name+": chose \u201c"+c.label+"\u201d.");
+  document.querySelector("#sc-result .btn").style.display="";
+  save();
+  finishDayAdvance();
+}
+function finishDayAdvance(){
+  generateQueue();
+  S.storyLog.push("Day "+S.day+" begins.");
+  save();
+  document.getElementById("resultBox").innerHTML="<div class=\"outcome-flash good\"><div class=\"big\">☀️ Day "+S.day+"</div><div>The clinic opens its doors again.</div></div>";
+  document.getElementById("resultExtra").innerHTML="";
+  document.querySelector("#sc-result .btn").style.display="";
+  go("result");
+}
+
+/* ---------- INIT ---------- */
+load();
+ui();
+</script>
+</body>
+</html>

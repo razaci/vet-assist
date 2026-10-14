@@ -123,12 +123,14 @@ select{-webkit-appearance:none;appearance:none}
 <div class="muted" style="font-size:.74rem;margin-bottom:4px">APPOINTMENT · STEP <span id="examStepNum">1</span>/5</div>
 <div style="margin:4px 0 10px"><span class="step-dot on" id="ed1"></span><span class="step-dot" id="ed2"></span><span class="step-dot" id="ed3"></span><span class="step-dot" id="ed4"></span><span class="step-dot" id="ed5"></span></div>
 <div class="patient-card" id="examPatientCard"></div>
+<button class="btn" onclick="openAnimalNotes(session.patient.id)">📝 Animal notes & care supplies</button>
 <div id="examBody"></div>
 </section>
 
 <section id="sc-result" class="screen">
 <div id="resultBox"></div>
 <div id="resultExtra"></div>
+<button class="btn" onclick="openAnimalNotes(session.patient.id)">📝 Notes & care supplies</button>
 <button class="btn" onclick="endExam()">Back to clinic</button>
 </section>
 
@@ -623,6 +625,7 @@ function renderPatients(){
     (p.lastDx?"<div class=\"muted\" style=\"font-size:.78rem;margin-top:2px\">Last: "+p.lastDx+" — "+p.lastOutcome+"</div>":"")+
     "</div>";
   }).join("");
+  el.querySelectorAll('.card').forEach((card,i)=>{const b=document.createElement('button');b.className='btn';b.textContent='📝 Notes for '+list[i].name;b.onclick=()=>openAnimalNotes(list[i].id);card.appendChild(b)});
   S.patFilter=filterSel.value;S.patSort=sortMode;
 }
 
@@ -776,5 +779,81 @@ function finishDayAdvance(){
 load();
 ui();
 </script>
+
+<style>
+#animalNotes{width:min(640px,94vw);max-height:88dvh;overflow:auto;background:#101f2c;color:#e7f5ff;border:1px solid #39728b;border-radius:18px;padding:18px;box-shadow:0 20px 70px #0009}#animalNotes::backdrop{background:#000a}#animalNotes textarea{box-sizing:border-box;width:100%;min-height:230px;padding:12px;font:16px/1.6 system-ui;color:#edfaff;background:#07131e;border:1px solid #3b6275;border-radius:10px;resize:vertical}#animalNotes .noteTools{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}#animalNotes .noteTools .btn{width:auto;margin:0;padding:9px 12px}#noteStatus{font-size:12px;color:#9cdac7;margin:8px 0}
+</style>
+<dialog id="animalNotes"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><h2 id="noteTitle">Animal notes</h2><button class="btn" style="width:auto" onclick="document.getElementById('animalNotes').close()">Close</button></div><p class="muted" id="noteContext"></p><div class="noteTools"><button class="btn" onclick="stampAnimalNote()">+ Timestamp</button><button class="btn" onclick="captureAnimalVisit()">Capture current visit</button><button class="btn" onclick="addAnimalTemplate()">Observation template</button><button class="btn" onclick="exportAnimalNotes()">Download .txt</button></div><details id="careSupplies" open><summary style="font-weight:700;cursor:pointer;padding:12px 0">🛒 Animal care supplies · Amazon</summary><p id="supplyContext" class="muted"></p><p class="muted" style="font-size:12px;margin:8px 0">Amazon search links, not verified listings. Check species, size, ingredients, and seller. Medical supplies are for a veterinarian-directed care plan.</p><label for="supplyCategory">Care category</label><select id="supplyCategory" style="width:100%;margin:6px 0" onchange="renderCareSupplies()"><option value="Relevant">Relevant to this visit</option><option>All</option><option>Food & feeding</option><option>Transport</option><option>Recovery & comfort</option><option>Medical & emergency</option><option>Grooming & dental</option><option>Cleaning & habitat</option></select><div id="supplyList"></div><button class="btn" onclick="insertSelectedSupplies()">Insert selected supplies into notes</button><div class="noteTools"><input id="customSupply" aria-label="Custom care product" placeholder="Other care product to search…" style="flex:1;min-width:160px"><button class="btn" onclick="insertCustomSupply()">Add custom link</button></div></details><label for="noteEditor">What is happening to this animal?</label><textarea id="noteEditor" maxlength="100000" placeholder="Write observations, symptoms, actions taken, changes, and follow-up here…" oninput="saveAnimalNotes()"></textarea><div id="noteStatus" role="status" aria-live="polite"></div><details><summary style="cursor:pointer;padding:8px 0">Read notes with clickable Amazon links</summary><div id="linkedNotes" style="white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#07131e;border-radius:10px"></div></details><div id="noteProductLinks" style="overflow-wrap:anywhere"></div><p class="muted" style="font-size:12px">Simulator notes • Saved on this browser and device. Download a text copy to keep a backup.</p></dialog>
+<script>
+let animalNoteId=null;
+const noteEditor=()=>document.getElementById('noteEditor');
+function animalNoteKey(){return 'vetAssist.animalNotes.v1.'+animalNoteId}
+function openAnimalNotes(id){
+ animalNoteId=id;const p=S.patients.find(p=>p.id===id);if(!p)return;
+ document.getElementById('noteTitle').textContent=p.name+' — simulator notes';
+ document.getElementById('noteContext').textContent=p.species+' · '+p.breed+' · Patient '+p.id;
+ try{noteEditor().value=localStorage.getItem(animalNoteKey())||'';document.getElementById('noteStatus').textContent='Ready · Notes stay with this animal across visits.'}catch(e){noteEditor().value='';document.getElementById('noteStatus').textContent='Browser storage unavailable. Download your notes before closing.'}
+ document.getElementById('supplyCategory').value='Relevant';renderCareSupplies();renderLinkedAnimalNotes();
+ document.getElementById('animalNotes').showModal();
+}
+function saveAnimalNotes(){renderLinkedAnimalNotes();try{localStorage.setItem(animalNoteKey(),noteEditor().value);document.getElementById('noteStatus').textContent='Saved · '+new Date().toLocaleTimeString()}catch(e){document.getElementById('noteStatus').textContent='Could not save in this browser. Download your notes now to keep them.'}}
+function appendAnimalNote(text){const ed=noteEditor();ed.value=(ed.value?ed.value+'\n\n':'')+text;saveAnimalNotes();ed.scrollTop=ed.scrollHeight;ed.focus()}
+function noteStamp(){return '[Simulator day '+S.day+' · '+new Date().toLocaleString()+']'}
+function stampAnimalNote(){appendAnimalNote(noteStamp()+'\nObservation: ')}
+function addAnimalTemplate(){appendAnimalNote(noteStamp()+'\nObserved symptoms / behavior: \nActions taken: \nResponse / changes: \nFollow-up: ')}
+function captureAnimalVisit(){
+ const p=S.patients.find(p=>p.id===animalNoteId);let lines=[noteStamp(),p.name+' ('+p.species+')', 'Wellness: '+p.wellness+'/100'];
+ if(session&&session.patient.id===animalNoteId){lines.push('Appointment: '+session.appt.apptId,'Complaint: '+session.appt.complaint,'Visit: '+session.appt.visitType+' · '+session.appt.urgency,'Exam step: '+session.step+'/5');if(session.foundSigns.length)lines.push('Observed signs: '+session.foundSigns.join(', '));const dx=DIAGNOSES.find(d=>d.id===session.diagnosisId);if(dx)lines.push('Selected diagnosis: '+dx.name);lines.push('Lab run: '+(session.labRun?'Yes':'No'));if(session.treatmentType)lines.push('Treatment: '+session.treatmentType);if(session.appt.done)lines.push('Outcome: '+p.lastOutcome)}
+ else {const r=S.medicalLog.find(r=>r.patientId===p.id);if(r)lines.push('Last completed visit: simulator day '+r.day,'Diagnosis: '+r.diagnosis,'Treatment: '+r.treatment,'Outcome: '+r.outcome);else lines.push('No completed visits yet.')}
+ lines.push('My observations: ');appendAnimalNote(lines.join('\n'));
+}
+function exportAnimalNotes(){const p=S.patients.find(p=>p.id===animalNoteId);const blob=new Blob(['SIMULATOR NOTES — '+p.name+'\nPatient '+p.id+' · '+p.species+'\n\n'+noteEditor().value],{type:'text/plain;charset=utf-8'});const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=p.name.replace(/[^a-z0-9_-]/gi,'_')+'-simulator-notes.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+</script>
+
+
+<style>#supplyList .supplyRow{padding:10px 0;border-bottom:1px solid #294252;display:grid;grid-template-columns:24px 1fr;gap:8px}#supplyList input{width:18px;height:18px;margin-top:5px}#supplyList a,#linkedNotes a,#noteProductLinks a{color:#8de4ff;text-decoration:underline}#supplyList small{display:block;color:#9cafbd;margin-top:4px}#noteProductLinks a{display:block;padding:8px 0}#careSupplies{margin:8px 0 18px;border-bottom:1px solid #294252}</style>
+<script>
+const CARE_PRODUCTS=[
+ ['food','Food appropriate to species','Food & feeding','{food}','Routine feeding; check life stage and ingredients.','wellness'],
+ ['foodbin','Airtight food storage','Food & feeding','pet food airtight container','Keep food clean and dry.','wellness'],
+ ['bowl','Food and water bowls','Food & feeding','{animal} food water bowls','Select a suitable size and material.','wellness'],
+ ['travelbowl','Travel water bowl','Food & feeding','{animal} travel water bowl','For transport and emergency packing.','emergency'],
+ ['slow','Slow feeder','Food & feeding','{animal} slow feeder','A feeding accessory; suitability depends on the animal.','wellness', ['Dog','Cat','Horse']],
+ ['carrier','Secure carrier / transport','Transport','{transport}','Check size, ventilation, and secure closures.','emergency'],
+ ['liner','Carrier liner','Transport','{animal} washable carrier liner','Comfort and cleanup during travel.','emergency'],
+ ['idtag','Identification tags','Transport','{animal} identification tag','Keep identification details current.','wellness'],
+ ['lead','Lead and harness / halter','Transport','{lead}','Choose species-appropriate fit.','wellness',['Dog','Cat','Ferret','Rabbit','Horse']],
+ ['bed','Washable recovery bedding','Recovery & comfort','{animal} washable bedding','A clean, comfortable resting area.','recovery'],
+ ['mat','Non-slip mat','Recovery & comfort','non slip pet mat','For secure footing in the care area.','mobility'],
+ ['ramp','Pet access ramp','Recovery & comfort','{animal} pet ramp','Select load rating and dimensions.','mobility',['Dog','Cat']],
+ ['support','Mobility support harness','Recovery & comfort','{animal} mobility support harness','Use with professional fitting advice.','mobility',['Dog','Cat']],
+ ['cone','Recovery collar','Recovery & comfort','{animal} recovery collar','Only if appropriate for a veterinarian-directed plan.','recovery',['Dog','Cat','Rabbit','Ferret']],
+ ['kit','Animal first aid kit','Medical & emergency','{animal} first aid kit','Review contents and keep emergency clinic details available.','emergency'],
+ ['gauze','Sterile gauze pads','Medical & emergency','sterile gauze pads','Basic first aid kit supply; application requires appropriate guidance.','emergency'],
+ ['saline','Sterile saline wound wash','Medical & emergency','sterile saline wound wash','Check labeling and veterinarian instructions.','emergency'],
+ ['gloves','Disposable nitrile gloves','Medical & emergency','disposable nitrile gloves','For handling and cleanup.','emergency'],
+ ['wrap','Veterinary bandage supplies','Medical & emergency','veterinary bandage supplies','Bandaging technique and tension need veterinary guidance.','emergency'],
+ ['shears','Blunt-tip bandage scissors','Medical & emergency','blunt tip bandage scissors','Basic first aid kit equipment.','emergency'],
+ ['thermo','Animal digital thermometer','Medical & emergency','{animal} veterinary digital thermometer','For a veterinarian-directed monitoring plan.','monitoring'],
+ ['pillbox','Medication organizer','Medical & emergency','pet medication organizer','Organize medicines already prescribed by a veterinarian.','recovery'],
+ ['brush','Grooming brush','Grooming & dental','{animal} grooming brush','Choose for coat type.','wellness',['Dog','Cat','Rabbit','Ferret','Horse']],
+ ['dental','Pet dental brush kit','Grooming & dental','{animal} toothbrush toothpaste kit','Use species-appropriate products and veterinary advice.','dental',['Dog','Cat']],
+ ['towel','Washable towels','Cleaning & habitat','pet washable towels','Handling, bedding, and cleanup supplies.','recovery'],
+ ['cleaner','Habitat cleaning supplies','Cleaning & habitat','{animal} habitat cleaning supplies','Follow label instructions; keep animals away during cleaning.','cleaning'],
+ ['pads','Absorbent care pads','Cleaning & habitat','pet absorbent washable pads','Protect the care area and simplify cleanup.','cleaning'],
+ ['waste','Waste disposal supplies','Cleaning & habitat','{waste}','For routine sanitation.','cleaning'],
+ ['habitat','Species-appropriate enclosure','Cleaning & habitat','{animal} habitat enclosure','Check required dimensions and species needs.','wellness'],
+ ['monitor','Habitat temperature monitor','Cleaning & habitat','reptile digital thermometer hygrometer','An enclosure accessory, not a treatment.','monitoring',['Reptile']]
+];
+function supplyAnimal(){return S.patients.find(p=>p.id===animalNoteId)}
+function supplySearch(query){return 'https://www.amazon.com/s?k='+encodeURIComponent(query)}
+function supplyQuery(row){const p=supplyAnimal(),a=p.species.toLowerCase();const food={Rabbit:'rabbit timothy hay pellets',Bird:'bird species appropriate food',Reptile:'reptile species appropriate food',Horse:'horse feed hay',Ferret:'ferret food',Cat:'cat food',Dog:'dog food'};const transport=p.species==='Horse'?'horse transport equipment':a+' secure pet carrier';return row[3].replace('{animal}',a).replace('{food}',food[p.species]||a+' food').replace('{transport}',transport).replace('{lead}',p.species==='Horse'?'horse halter lead rope':a+' harness leash').replace('{waste}',p.species==='Cat'?'cat litter scoop':p.species==='Horse'?'horse manure scoop':a+' waste cleanup supplies')}
+function supplyTags(){const p=supplyAnimal();const active=session&&session.patient.id===p.id?session:null;const chosen=active?DIAGNOSES.find(d=>d.id===active.diagnosisId):null;const last=!active?S.medicalLog.find(r=>r.patientId===p.id):null;const text=[active?.appt.complaint,active?.appt.urgency,active?.treatmentType,...(active?.foundSigns||[]),chosen?.name,chosen?.txClass,last?.diagnosis].join(' ').toLowerCase();let tags=['wellness','recovery'];if(/urgent|critical|collapse|dehydrat|emergency/.test(text))tags.push('emergency','monitoring');if(/stiff|pain|arthrit|mobility/.test(text))tags.push('mobility');if(/dental|breath/.test(text))tags.push('dental');if(/vomit|diarrhea|gastro/.test(text))tags.push('cleaning');if(/cough|respiratory|nasal/.test(text))tags.push('monitoring','cleaning');return tags}
+function renderCareSupplies(){const p=supplyAnimal(),filter=document.getElementById('supplyCategory').value,tags=supplyTags();document.getElementById('supplyContext').textContent=p.name+' · '+p.species+' · '+(session&&session.patient.id===p.id?'current exam step '+session.step+'/5':'latest recorded visit')+' · Select supplies to record in this animal’s notes.';const list=document.getElementById('supplyList');list.replaceChildren();CARE_PRODUCTS.forEach((row,i)=>{if(row[6]&&!row[6].includes(p.species))return;if(filter==='Relevant'&&!tags.includes(row[5]))return;if(!['Relevant','All'].includes(filter)&&row[2]!==filter)return;const label=document.createElement('label');label.className='supplyRow';const check=document.createElement('input');check.type='checkbox';check.value=i;check.setAttribute('aria-label','Select '+row[1]);const body=document.createElement('div'),name=document.createElement('strong'),link=document.createElement('a'),small=document.createElement('small');name.textContent=row[1];link.textContent='Search Amazon ↗';link.href=supplySearch(supplyQuery(row));link.target='_blank';link.rel='noopener noreferrer';link.style.display='block';small.textContent=row[2]+' · '+row[4];body.append(name,link,small);label.append(check,body);list.append(label)})}
+function insertSelectedSupplies(){const checked=[...document.querySelectorAll('#supplyList input:checked')];if(!checked.length){document.getElementById('noteStatus').textContent='Select at least one care supply first.';return}const p=supplyAnimal();let lines=[noteStamp(),'CARE SUPPLIES SELECTED — '+p.name+' (Amazon searches)'];checked.forEach(c=>{const row=CARE_PRODUCTS[Number(c.value)];lines.push(row[1]+' — '+row[2],supplySearch(supplyQuery(row)));c.checked=false});appendAnimalNote(lines.join('\n'))}
+function insertCustomSupply(){const el=document.getElementById('customSupply'),term=el.value.trim();if(!term)return;appendAnimalNote(noteStamp()+'\nCare product: '+term+'\n'+supplySearch(supplyAnimal().species+' '+term));el.value=''}
+function renderLinkedAnimalNotes(){const text=noteEditor().value,view=document.getElementById('linkedNotes'),links=document.getElementById('noteProductLinks');view.replaceChildren();links.replaceChildren();const re=/https:\/\/www\.amazon\.com\/s\?k=[^\s]+/g;let pos=0,m;const seen=new Set();while((m=re.exec(text))){view.append(document.createTextNode(text.slice(pos,m.index)));const a=document.createElement('a');a.href=m[0];a.target='_blank';a.rel='noopener noreferrer';a.textContent=m[0];view.append(a);pos=m.index+m[0].length;if(!seen.has(m[0])){seen.add(m[0]);const shortcut=a.cloneNode(true);try{shortcut.textContent='Amazon: '+new URL(m[0]).searchParams.get('k')+' ↗'}catch{}links.append(shortcut)}}view.append(document.createTextNode(text.slice(pos)))}
+</script>
+
 </body>
 </html>

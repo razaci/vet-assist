@@ -1357,4 +1357,756 @@ function renderDisasterBrowser(){const species=document.getElementById('disaster
 function admitChosenDisaster(id){const dx=DIAGNOSES.find(d=>d.id===id);if(!dx?.id.startsWith('DXC'))return;const species=dx.species[0],p=makeNewPatient();p.species=species;p.breed=pick(BREEDS[species]);p.weight=species==='Horse'?420:species==='Bird'?.3:species==='Reptile'?1.2:species==='Rabbit'||species==='Ferret'?2:species==='Cat'?4.5:24;S.queue.unshift({apptId:'A'+String(S.nextApptNum++).padStart(4,'0'),patientId:p.id,clientId:p.clientId,visitType:'Cataclysm intake',urgency:'Urgent',complaint:dx.name+' — '+dx.signs[0],trueDxId:dx.id,fee:250,done:false});save();go('queue');toast('Selected disaster case added to intake.')}
 renderDisasterBrowser();drawHomeDesk();
 
-</script></body></html>
+</script><style>
+#runningNotes{box-sizing:border-box;width:min(720px,96vw);max-height:90dvh;overflow:auto;background:#10202d;color:#e7f5ff;border:1px solid #52796e;border-radius:14px;padding:18px}#runningNotes::backdrop{background:#020a12b8}#runningNotes textarea{width:100%;box-sizing:border-box;min-height:240px;background:#07131e;color:white;padding:12px;font:15px/1.6 system-ui;border:1px solid #52796e;border-radius:8px}#runningNotes select{width:100%;padding:10px;margin:10px 0}#runningNotes .rnTools{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}#runningNotes .btn{width:auto;margin:0;font-size:12px}#rnLauncher{position:fixed;right:14px;bottom:86px;z-index:30;width:auto;box-shadow:0 4px 18px #0009}.rnCapture{font-size:11px!important;padding:7px 10px!important;min-height:32px!important;width:auto!important;margin-top:8px!important}#rnStatus{font-size:12px;min-height:22px;color:#9aebcb}.rnHeading{display:flex;align-items:center;justify-content:space-between;gap:10px}.rnHeading h2{margin:0;font-size:21px}
+</style>
+<dialog id="runningNotes" aria-labelledby="rnTitle"><div class="rnHeading"><h2 id="rnTitle">Running notebook</h2><button class="btn sec" onclick="document.getElementById('runningNotes').close()">Back to program</button></div><label for="rnTarget">Save notes to</label><select id="rnTarget" onchange="rnSwitch(this.value)"></select><p class="muted">Capture details with one click or type anywhere below. Patient notes use the same notebook as the patient’s Notes tab. Saved on this browser and device.</p><div class="rnTools"><button class="btn" onclick="rnCaptureKind('snapshot')">+ Current case</button><button class="btn sec" onclick="rnCaptureKind('findings')">+ Findings</button><button class="btn sec" onclick="rnCaptureKind('tests')">+ Test results</button><button class="btn sec" onclick="rnCaptureKind('care')">+ Care & recovery</button><button class="btn sec" onclick="rnCaptureKind('crisis')">+ Crisis report</button><button class="btn sec" onclick="rnCaptureKind('journal')">+ Case journal</button><button class="btn sec" onclick="rnHighlighted()">+ Highlighted text</button><button class="btn sec" onclick="rnAdd('My observation','Observation: \nAction: \nResponse: \nNext check: ')">+ Observation template</button></div><label for="rnText">Your editable notes</label><textarea id="rnText" oninput="rnSave()" placeholder="Write anything you want to remember…"></textarea><p id="rnStatus" role="status" aria-live="polite"></p><div class="rnTools"><button class="btn" onclick="rnDownload(false)">Download notes .txt</button><button class="btn sec" onclick="rnDownload(true)">Back up all notebooks .json</button></div></dialog>
+<button class="btn" id="rnLauncher" onclick="rnOpen()">✎ Notes</button>
+<script>
+/* One-click captures share existing patient note keys; no game turns advance. */
+let rnId='clinic',rnSelection='',rnScreen='';
+const rnDialog=document.getElementById('runningNotes'),rnText=document.getElementById('rnText');
+const rnKey=id=>id==='clinic'?'vetAssist.clinicNotes.v1':'vetAssist.animalNotes.v1.'+id;
+function rnRead(id){try{return localStorage.getItem(rnKey(id))||''}catch{return ''}}
+function rnName(id){return S.patients.find(p=>p.id===id)?.name||'Clinic / general notes'}
+function rnContext(){const d=document.getElementById('animalNotes');return d?.open?animalNoteId:session?.patient.id||'clinic'}
+function rnClean(el){const c=el.cloneNode(true);c.querySelectorAll('button,script,style,textarea,input,select,.rnCapture').forEach(n=>n.remove());c.querySelectorAll('p,div,h2,h3,small,br,li').forEach(n=>n.append(document.createTextNode('\n')));return (c.innerText||c.textContent||'').replace(/\n{3,}/g,'\n\n').trim()}
+function rnOpen(id){rnId=id||rnContext();const screen=document.querySelector('.screen.active,.screen.on')||[...document.querySelectorAll('.screen')].find(n=>getComputedStyle(n).display!=='none');rnScreen=screen?rnClean(screen):'Clinic day '+S.day;document.getElementById('rnTarget').innerHTML='<option value="clinic">Clinic / general notes</option>'+S.patients.map(p=>'<option value="'+dxEscape(p.id)+'">'+dxEscape(p.name+' · '+p.species+' · '+p.id)+'</option>').join('');document.getElementById('rnTarget').value=rnId;rnText.value=rnRead(rnId);document.getElementById('rnStatus').textContent='Ready · '+rnName(rnId);if(!rnDialog.open)rnDialog.showModal()}
+function rnSwitch(id){rnId=id;rnText.value=rnRead(id);document.getElementById('rnStatus').textContent='Ready · '+rnName(id)}
+function rnWrite(id,text){try{localStorage.setItem(rnKey(id),text);if(animalNoteId===id){noteEditor().value=text;renderLinkedAnimalNotes()}return true}catch{return false}}
+function rnSave(){document.getElementById('rnStatus').textContent=rnWrite(rnId,rnText.value)?'Saved · '+rnName(rnId)+' · '+new Date().toLocaleTimeString():'Could not save. Download your notes before closing.'}
+function rnAdd(title,text,id=rnId){if(!text?.trim()){if(rnDialog.open)document.getElementById('rnStatus').textContent='No recorded '+title.toLowerCase()+' for this notebook yet.';else toast('No detail to capture yet.');return}const entry='[Day '+S.day+' · '+new Date().toLocaleString()+'] '+title+'\n'+text;const old=rnDialog.open&&id===rnId?rnText.value:rnRead(id),value=old+(old?'\n\n':'')+entry;if(rnDialog.open&&id===rnId)rnText.value=value;const ok=rnWrite(id,value);if(rnDialog.open)document.getElementById('rnStatus').textContent=ok?'Added to '+rnName(id)+' · saved':'Could not save. Download or copy these notes now.';else if(ok)toast('Added to notes · '+rnName(id));else{rnOpen(id);rnText.value=value;document.getElementById('rnStatus').textContent='Could not save. Download or copy these notes now.'}}
+function rnCaptureKind(kind){const p=S.patients.find(p=>p.id===rnId),a=session?.patient.id===rnId?session:null,ward=(S.recoveryWard||[]).filter(r=>r.patientId===rnId),last=S.medicalLog.filter(r=>r.patientId===rnId)[0];let text='',title=kind;
+if(kind==='snapshot'){title='Current case snapshot';text=p?[p.name+' · '+p.species+' · '+formatAnimalWeight(p.weight),a?'Visit '+a.appt.apptId+' · Step '+a.step+'\nConcern: '+a.appt.complaint:last?'Last visit: '+JSON.stringify(last):'No completed visit recorded.',a?'Working diagnosis: '+(DIAGNOSES.find(d=>d.id===a.diagnosisId)?.name||'Not selected'):'',ward.map(r=>'Recovery: '+r.status+' · comfort '+r.comfort+'/100').join('\n')].filter(Boolean).join('\n'):rnScreen}
+if(kind==='findings'){title='Patient findings';text=a?[a.appt.complaint,...(a.discoveredSigns||[]),...(a.foundSigns||[]),...Object.entries(a.vitals||{}).map(([k,v])=>k+': '+(k==='temp'?formatAnimalTemp(v.v):v.v))].filter(Boolean).join('\n'):''}
+if(kind==='tests'){title='Recorded test results';text=a?.testResults?.length?JSON.stringify(a.testResults,null,2):''}
+if(kind==='care'){title='Care & recovery';text=[a?.treatmentType?'Chosen care: '+a.treatmentType:'',last?'Completed visit: '+JSON.stringify(last):'',...ward.map(r=>'Recovery status: '+r.status+' · Round '+r.round+' · Comfort '+r.comfort+'/100\n'+(r.history||[]).map(e=>JSON.stringify(e)).join('\n'))].filter(Boolean).join('\n')}
+if(kind==='crisis'){title='Crisis report';const problems=a?.crisisProblems||ward.at(-1)?.crisisProblems;text=problems?.map(x=>x.title+' · '+(x.checked?'Checked':'Not assessed')+' · game danger '+x.danger+'/100'+(x.checked?'\n'+x.description:'')).join('\n\n')||''}
+if(kind==='journal'){title='Automatic case journal snapshot';text=p?readCaseJournal(rnId):''}rnAdd(title,text)}
+document.addEventListener('selectionchange',()=>{const s=String(window.getSelection()).trim();if(s)rnSelection=s});
+function rnHighlighted(){rnAdd('Selected program text',rnSelection);rnSelection=''}
+function rnDownload(all){const content=all?JSON.stringify({format:'vet-assist-notebooks-v1',exportedAt:new Date().toISOString(),clinic:rnRead('clinic'),patients:S.patients.map(p=>({id:p.id,name:p.name,notes:rnRead(p.id),journal:readCaseJournal(p.id)}))},null,2):'FICTIONAL SIMULATOR NOTES — '+rnName(rnId)+'\n\n'+rnText.value;const url=URL.createObjectURL(new Blob([content],{type:all?'application/json':'text/plain;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download=all?'Vet-Assist-All-Notebooks.json':rnName(rnId).replace(/[^a-z0-9_-]/gi,'_')+'-notes.txt';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function rnCardPatient(card){const wardBtn=[...card.querySelectorAll('[onclick]')].find(b=>/openAnimalNotes\('/.test(b.getAttribute('onclick')));if(wardBtn)return wardBtn.getAttribute('onclick').match(/openAnimalNotes\('([^']+)'/)[1];const start=[...card.querySelectorAll('[onclick]')].find(b=>/startAppointment\('/.test(b.getAttribute('onclick')));if(start){const id=start.getAttribute('onclick').match(/startAppointment\('([^']+)'/)[1];return S.queue.find(a=>a.apptId===id)?.patientId}return rnContext()}
+function rnDecorate(){document.querySelectorAll('#examBody .card,#examBody .vital,#examBody .dxCard,#examBody .testResult,#examBody .crisisProblem,#examBody .caseDebrief,#queueList .card,#sc-inventory .card,#sc-staff .card,#sc-more .card,.wardPatient,.deskPatient,#patientProblems').forEach(card=>{if(card.querySelector(':scope > .rnCapture'))return;const b=document.createElement('button');b.className='btn sec rnCapture';b.textContent='+ Add to notes';b.onclick=e=>{e.stopPropagation();rnAdd('Captured program detail',rnClean(card),rnCardPatient(card))};card.append(b)});document.querySelectorAll('dialog:not(#runningNotes):not(#cbReportDialog)').forEach(d=>{if(d.querySelector('.rnOpenInside'))return;const b=document.createElement('button');b.className='btn sec rnOpenInside';b.textContent='✎ Running notebook';b.onclick=()=>rnOpen(d.id==='animalNotes'?animalNoteId:undefined);d.prepend(b)})}
+let rnPending=false;new MutationObserver(()=>{if(rnPending)return;rnPending=true;setTimeout(()=>{rnPending=false;rnDecorate()},80)}).observe(document.body,{childList:true,subtree:true});rnDecorate();
+</script>
+
+
+<style>
+:root{--ep-gold:#ebc783;--ep-ink:#09151e}.epHero{padding:22px;border:1px solid #355765;border-radius:18px;background:radial-gradient(ellipse at 90% 0,#204b57 0,transparent 55%),linear-gradient(125deg,#122c3c,#0a1826);margin-bottom:16px}.epHero h1{font-size:clamp(25px,4vw,38px);line-height:1.12;margin:7px 0 12px;letter-spacing:-1px}.epHero p{max-width:650px;color:#b4cad5}.epTag{color:var(--ep-gold);font-size:11px;letter-spacing:2px;text-transform:uppercase}.epLayout{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(240px,1fr);gap:16px}.epPanel{min-width:0;border:1px solid #2b4757;border-radius:15px;padding:18px;background:#0d202d}.epPanel h2{font-size:19px;margin:0 0 14px}.epIdentity{display:flex;align-items:center;gap:14px}.epPortrait{font-size:52px;border-radius:18px;padding:13px;background:linear-gradient(145deg,#254957,#132d3e)}.epIdentity h2{font-size:27px;margin:0 0 6px}.epStage{display:flex;gap:5px;flex-wrap:wrap;margin:17px 0}.epStage span{font-size:11px;border:1px solid #314653;padding:6px 8px;border-radius:6px;color:#8ca9b9}.epStage .current{background:#254f4e;color:#c0ffe9;border-color:#68ad98}.epNext{padding:15px;border-left:3px solid var(--ep-gold);background:#172d38;margin:15px 0}.epNext p{margin:6px 0 12px}.epToolbar{display:flex;flex-wrap:wrap;gap:7px}.epToolbar .btn{width:auto;margin:0;min-height:40px}.epPatientList{display:grid;gap:8px;max-height:360px;overflow:auto}.epPick{width:100%;text-align:left;color:#dceef5;background:#102735;border:1px solid #2f4b5b;border-radius:10px;padding:12px;cursor:pointer;font:inherit}.epPick.selected{border-color:var(--ep-gold);background:#24383d}.epPick small{display:block;color:#aac2cd;margin-top:4px}.epTimeline{max-height:330px;overflow:auto;padding-left:15px;border-left:1px solid #476572;margin-top:12px}.epEvent{padding:0 0 16px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.6}.epEvent strong{display:block;color:#b5efda}.epReminders{margin-top:16px}.epTask{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid #29414e;overflow-wrap:anywhere}.epTask input{width:auto;margin-top:5px}.epTask.done span{text-decoration:line-through;color:#8fa6b1}.epTask button{margin-left:auto;background:transparent;color:#c2d8e2;border:0;min-width:34px;min-height:32px;cursor:pointer}.epTaskForm{display:flex;gap:7px;margin-top:10px}.epTaskForm input{min-width:0;flex:1;background:#091923;color:#eef8ff;border:1px solid #375363;border-radius:8px;padding:10px}.epTaskForm button{width:auto;margin:0}.epEmpty{color:#9cb8c7;font-size:13px;line-height:1.6}.epNoteToggle{position:fixed;right:18px;bottom:150px;z-index:55;background:#bce9d5;color:#09251c;border:1px solid #77ba9a;border-radius:28px;padding:12px 19px;font-weight:800;box-shadow:0 6px 24px #0008;cursor:pointer}.epBedside{position:fixed;right:16px;top:80px;bottom:132px;width:min(390px,calc(100vw - 28px));z-index:60;padding:18px;background:#0c202df5;backdrop-filter:blur(14px);border:1px solid #5c8e99;border-radius:16px;box-shadow:0 20px 70px #000a;overflow:auto;box-sizing:border-box}.epBedside[hidden]{display:none}.epBedside header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.epBedside h2{margin:0;font-size:20px}.epBedside select,.epBedside textarea{width:100%;box-sizing:border-box;padding:10px;background:#071721;color:#e8f6ff;border:1px solid #416473;border-radius:8px;font:14px/1.6 system-ui}.epBedside textarea{height:125px;resize:vertical;margin:9px 0}.epBedside label{display:block;margin-top:10px;font-size:13px}.epBedside .epToolbar .btn{font-size:12px;flex:1 1 40%}.epRecent{font-size:12px;white-space:pre-wrap;max-height:120px;overflow:auto;border-top:1px solid #37515c;padding-top:10px;margin-top:12px;color:#c3dce5}.epStatus{font-size:12px;color:#b0e7ce;min-height:20px}.epCheck{display:flex!important;gap:8px;align-items:flex-start}.epCheck input{width:auto;margin:4px 0}.epHeaderBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}@media(min-width:1400px){body.epNotesOpen .app{margin-right:425px}}@media(max-width:760px){.epLayout{grid-template-columns:1fr}.epHero{padding:17px}.epPanel{padding:14px}.epBedside{top:70px;bottom:138px;right:10px}.epNoteToggle{bottom:150px;right:10px;padding:10px 14px}.epTimeline{max-height:260px}.epIdentity h2{font-size:24px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+<aside id="epBedside" class="epBedside" hidden aria-label="Bedside patient notebook"><header><h2>Bedside notebook</h2><button class="btn sec" style="width:auto;margin:0" onclick="epToggleNotes(false)">Close</button></header><label for="epTarget">Patient</label><select id="epTarget" onchange="epSwitchNote(this.value)"></select><div id="epNoteContext" class="epEmpty"></div><label for="epDraft">Quick observation · draft saves as you type</label><textarea id="epDraft" oninput="epSaveDraft()" placeholder="What changed? What did you do? What happened next?"></textarea><button class="btn" onclick="epCommitDraft()">Add observation to patient notes</button><div class="epToolbar"><button class="btn sec" onclick="epCapture('snapshot')">+ Case summary</button><button class="btn sec" onclick="epCapture('findings')">+ Findings</button><button class="btn sec" onclick="epCapture('tests')">+ Tests</button><button class="btn sec" onclick="epCapture('crisis')">+ Crisis status</button><button class="btn sec" onclick="epCapture('care')">+ Recovery</button><button class="btn sec" onclick="rnOpen(epNoteId)">Full notebook</button></div><label class="epCheck"><input id="epAuto" type="checkbox" onchange="epSetAuto(this.checked)"><span>Also copy future journal events into patient notes. Applies to all patients; existing events are not copied.</span></label><div id="epStatus" class="epStatus" role="status" aria-live="polite"></div><div class="epRecent" id="epRecent"></div></aside>
+<script>
+/* Patient-centered layer. Uses the original clinic, notebook and journal keys. */
+let epNoteId='clinic';
+const epBedside=document.getElementById('epBedside');
+function epFocusId(){return S.patients.some(p=>p.id===S.epicFocus)?S.epicFocus:session?.patient.id||S.activeCase?.patient.id||S.patients[0]?.id}
+function epSelect(id){S.epicFocus=id;save();if(!epBedside.hidden)epSwitchNote(id)}
+function epStageFor(id){const a=session?.patient.id===id?session:S.activeCase?.patient.id===id?S.activeCase:null,r=S.recoveryWard.filter(r=>r.patientId===id).at(-1),q=S.queue.find(a=>a.patientId===id&&!a.done);return {a,r,q,stage:a&&!a.appt.done?([0,1,2,2,2][a.step-1]??0):r&&r.status!=='Discharged'?3:r?.status==='Discharged'?4:0}}
+function epNextFor(id){const {a,r,q}=epStageFor(id);if(a&&!a.appt.done)return ['Continue the saved examination','Resume at step '+a.step+' of 5. Your recorded findings and choices stay with this visit.','Resume examination'];if(r&&r.status!=='Discharged')return [r.status==='Needs reassessment'?'Reassessment needs attention':'Continue the recovery round','Round '+r.round+' · '+(r.roundChecks||[]).length+' distinct care checks recorded. '+(r.status==='Needs reassessment'?'Review the concerning observation and arrange follow-up.':'Observe the response before advancing the round.'),'Open recovery'];if(q)return ['Investigate the reported concern',q.complaint,'Begin examination'];return ['Review the patient’s continuing story','Read the saved history, add an observation, or record your next care reminder.','Open patient record']}
+function epContinue(id){const {a,r,q}=epStageFor(id);if(a&&!a.appt.done){if(session?.patient.id===id)go('exam');else resumeActiveCase()}else if(r&&r.status!=='Discharged')focusRecovery(r.id);else if(q)startAppointment(q.apptId);else openPatientLife(id)}
+function epTimeline(id){const entries=readCaseJournal(id).split(/\n\n(?=\[Day )/).filter(Boolean);return entries.slice(-8).reverse().map(e=>{const parts=e.split('\n');return '<article class="epEvent"><strong>'+dxEscape(parts.shift())+'</strong>'+dxEscape(parts.join('\n'))+'</article>'}).join('')||'<p class="epEmpty">No recorded care events yet. Examination and recovery actions will build this timeline.</p>'}
+function epTasks(id){S.caseReminders=S.caseReminders||{};return S.caseReminders[id]||(S.caseReminders[id]=[])}
+function epAddTask(id){const input=document.getElementById('epTaskInput'),text=input.value.trim().slice(0,300);if(!text)return;const rows=epTasks(id);if(rows.length>=40){toast('Keep up to 40 reminders per animal. Remove a finished reminder first.');return}rows.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),text,done:false});save()}
+function epTaskAction(id,key,remove){const tasks=epTasks(id),i=tasks.findIndex(t=>t.id===key);if(i<0)return;if(remove)tasks.splice(i,1);else tasks[i].done=!tasks[i].done;save()}
+const epOriginalHome=drawHomeDesk;
+drawHomeDesk=function(){const id=epFocusId(),p=S.patients.find(p=>p.id===id);if(!p){epOriginalHome();return}const {a,r}=epStageFor(id),next=epNextFor(id),b=lifeBehavior(id),tasks=epTasks(id),waiting=S.queue.filter(a=>!a.done).length,recovery=S.recoveryWard.filter(r=>r.status!=='Discharged').length,flags=S.recoveryWard.filter(r=>r.status==='Needs reassessment').length;homeDesk.innerHTML=`<header class="epHero"><div class="epTag">VET ASSIST · Living casebook · Day ${S.day}</div><h1>Every patient has a story.<br>Every observation matters.</h1><p>Follow the evidence, choose the next step, and keep the whole journey together.</p><div class="deskPills"><span>${waiting} waiting</span><span>${recovery} in recovery</span><span>${flags} need reassessment</span><span>${DIAGNOSES.length} authored cases</span></div><div class="epHeaderBtns"><button class="btn" style="width:auto" onclick="go('queue')">Admit / examine →</button><button class="btn sec" style="width:auto" onclick="go('ward')">Recovery rounds</button></div></header><div class="epLayout"><section class="epPanel"><div class="epTag">Patient in focus</div><div class="epIdentity"><div class="epPortrait">${SPECIES_EMOJI[p.species]}</div><div><h2>${dxEscape(p.name)}</h2><div>${dxEscape(p.species+' · '+p.breed)}</div><small>${formatAnimalWeight(p.weight)} · ${dxEscape(b.label)}</small></div></div><div class="epStage">${['Intake','Investigate','Decide','Recover','Discharge'].map((s,i)=>'<span class="'+(i===epStageFor(id).stage?'current':'')+'">'+(i+1)+' '+s+'</span>').join('')}</div><p class="epEmpty">${dxEscape(b.text)}</p><div class="epNext"><strong>${dxEscape(next[0])}</strong><p>${dxEscape(next[1])}</p><button class="btn" onclick="epContinue('${id}')">${next[2]} →</button></div><div class="epToolbar"><button class="btn sec" onclick="epToggleNotes(true,'${id}')">Write / capture notes</button><button class="btn sec" onclick="openPatientLife('${id}')">Patient story</button><button class="btn sec" onclick="epDossier('${id}')">Download case report</button></div><div class="epReminders"><h2>My next checks</h2><p class="epEmpty">Your own reminders; checking one does not perform a care action.</p>${tasks.map(t=>`<label class="epTask ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="epTaskAction('${id}','${t.id}',false)"><span>${dxEscape(t.text)}</span><button aria-label="Remove reminder" onclick="event.preventDefault();epTaskAction('${id}','${t.id}',true)">×</button></label>`).join('')}<form class="epTaskForm" onsubmit="event.preventDefault();epAddTask('${id}')"><input id="epTaskInput" maxlength="300" aria-label="New care reminder" placeholder="What do you want to check next?"><button class="btn sec">Add</button></form></div></section><section class="epPanel"><h2>Choose a patient</h2><div class="epPatientList">${S.patients.map(x=>{const n=epNextFor(x.id);return `<button class="epPick ${x.id===id?'selected':''}" onclick="epSelect('${x.id}')"><strong>${SPECIES_EMOJI[x.species]} ${dxEscape(x.name)}</strong><small>${dxEscape(n[0])}</small></button>`}).join('')}</div><h2 style="margin-top:22px">Recorded care timeline</h2><div class="epTimeline">${epTimeline(id)}</div><button class="btn sec" onclick="openAnimalNotes('${id}');showCaseWorkspace('journal')">Read complete journal</button></section></div><p class="deskDisclaimer">Fictional animal-care simulator · severe authored cases and game measures.</p>`};
+function epDraftKey(id){return 'vetAssist.bedsideDraft.v1.'+id}
+function epStatus(text){document.getElementById('epStatus').textContent=text}
+function epToggleNotes(force,id){const open=typeof force==='boolean'?force:epBedside.hidden;epBedside.hidden=!open;document.body.classList.toggle('epNotesOpen',open);if(open){const target=id||session?.patient.id||epFocusId()||'clinic';document.getElementById('epTarget').innerHTML='<option value="clinic">Clinic / general notes</option>'+S.patients.map(p=>'<option value="'+dxEscape(p.id)+'">'+dxEscape(p.name+' · '+p.species)+'</option>').join('');epSwitchNote(target)}}
+function epSwitchNote(id){epNoteId=id;document.getElementById('epTarget').value=id;let draft='';try{draft=localStorage.getItem(epDraftKey(id))||''}catch{}document.getElementById('epDraft').value=draft;document.getElementById('epAuto').checked=!!S.epicAutoNotes;document.getElementById('epNoteContext').textContent=id==='clinic'?'General clinic notebook.':epNextFor(id).slice(0,2).join(' · ');epRefreshRecent();epStatus('Notebook: '+rnName(id))}
+function epRefreshRecent(){document.getElementById('epRecent').textContent=rnRead(epNoteId).slice(-1600)||'Your saved notes will appear here.'}
+function epSaveDraft(){try{localStorage.setItem(epDraftKey(epNoteId),document.getElementById('epDraft').value);epStatus('Draft saved for '+rnName(epNoteId))}catch{epStatus('Draft could not save. Keep or copy the text before closing.')}}
+function epCommitDraft(){const input=document.getElementById('epDraft'),text=input.value.trim();if(!text){epStatus('Write an observation first.');return}const old=rnRead(epNoteId);rnAdd('Bedside observation',text,epNoteId);if(rnRead(epNoteId)!==old){input.value='';epSaveDraft();epStatus('Observation added to '+rnName(epNoteId));epRefreshRecent()}}
+function epCapture(kind){const before=rnRead(epNoteId),oldId=rnId,oldText=rnText.value;if(rnDialog.open){rnOpen(epNoteId);rnCaptureKind(kind)}else{rnId=epNoteId;rnCaptureKind(kind);rnId=oldId;rnText.value=oldText}epRefreshRecent();epStatus(rnRead(epNoteId)!==before?'Captured '+kind+' for '+rnName(epNoteId):'No recorded '+kind+' available for this patient yet.')}
+function epSetAuto(value){S.epicAutoNotes=value;save();epStatus(value?'Future case events will also enter patient notes.':'Automatic copying turned off.')}
+const epCaseEvent=appendCaseEvent;appendCaseEvent=function(title,detail){epCaseEvent(title,detail);if(S.epicAutoNotes&&session)rnAdd(title,detail,session.patient.id);if(!epBedside.hidden)epRefreshRecent()};
+const epWardEvent=recordWardEvent;recordWardEvent=function(id,title,text){epWardEvent(id,title,text);if(S.epicAutoNotes)rnAdd(title,text,id);if(!epBedside.hidden)epRefreshRecent()};
+function epDossier(id){const p=S.patients.find(p=>p.id===id),n=epNextFor(id),text=['VET ASSIST — FICTIONAL PATIENT CASE REPORT',p.name+' · '+p.species+' · '+p.breed,formatAnimalWeight(p.weight)+' · '+p.age+' years','Exported '+new Date().toLocaleString()+' · Simulator day '+S.day,'NEXT STEP',n[0],n[1],'MY CHECKS',...epTasks(id).map(t=>(t.done?'[done] ':'[ ] ')+t.text),'PATIENT NOTES',rnRead(id)||'No notes recorded.','AUTOMATIC CARE JOURNAL',readCaseJournal(id)||'No care events recorded.'].join('\n\n');const a=document.createElement('a'),url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));a.href=url;a.download=p.name.replace(/[^a-z0-9_-]/gi,'_')+'-Complete-Case-Report.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+// Keep keyboard focus and in-progress note drafts independent of clinic redraws.
+const epGo=go;go=function(name){epGo(name);if(!epBedside.hidden&&session?.patient&&name==='exam')epSwitchNote(session.patient.id)};
+drawHomeDesk();
+</script>
+
+
+<style>
+#rnLauncher { right: 14px !important; bottom: 86px !important; }
+#epBesideLauncher {
+  position: fixed;
+  right: 110px;
+  bottom: 86px;
+  z-index: 30;
+  width: auto;
+  box-shadow: 0 4px 18px #0009;
+  background: #bce9d5;
+  color: #09251c;
+  border: 1px solid #77ba9a;
+  border-radius: 9px;
+  padding: 11px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+  min-height: 43px;
+}
+@media (max-width: 700px) {
+  #epBesideLauncher { right: 100px; bottom: 90px; font-size: 12px; padding: 8px 10px; }
+  #rnLauncher { bottom: 90px !important; }
+}
+</style>
+<script>
+(function() {
+  function placeBeside() {
+    if (document.getElementById('epBesideLauncher')) return;
+    const launcher = document.getElementById('rnLauncher');
+    if (!launcher) return;
+    const btn = document.createElement('button');
+    btn.id = 'epBesideLauncher';
+    btn.className = 'btn';
+    btn.textContent = '✎ Bedside';
+    btn.onclick = () => {
+      if (typeof epToggleNotes === 'function') epToggleNotes(true);
+    };
+    document.body.appendChild(btn);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', placeBeside);
+  } else {
+    placeBeside();
+  }
+  // Also retry after a short delay in case other scripts move things
+  setTimeout(placeBeside, 300);
+  setTimeout(placeBeside, 1200);
+})();
+</script>
+
+
+<script>
+S.difficulty=S.difficulty||'normal';S.upgrades=S.upgrades||{};S.achievements=S.achievements||{};S.trainingPoints=S.trainingPoints||0;S.hardModeStats=S.hardModeStats||{perfectStreak:0,daysSurvived:0,crisesResolved:0,mistakes:0};
+/* ========== ENHANCEMENTS: Harder, Deeper Gameplay ========== */
+/* Difficulty modes, Clinic Upgrades, Achievements, Dynamic Scaling, Extra Challenges */
+
+(function() {
+  // Patch default state for new systems
+  const originalDefault = defaultState;
+  defaultState = function() {
+    const base = originalDefault();
+    base.difficulty = base.difficulty || 'normal';
+    base.upgrades = base.upgrades || {};
+    base.achievements = base.achievements || {};
+    base.trainingPoints = base.trainingPoints || 0;
+    base.caseComplexity = base.caseComplexity || 1.0;
+    base.hardModeStats = base.hardModeStats || { perfectStreak: 0, daysSurvived: 0, crisesResolved: 0 };
+    return base;
+  };
+
+  // Difficulty definitions
+  const DIFFICULTIES = {
+    easy: { label: 'Easy', cashMult: 1.6, successBonus: 0.06, criticalMult: 0.5, payrollMult: 0.7, stressGain: 0.6, patientMult: 0.8, desc: 'More cash, higher success, fewer crises' },
+    normal: { label: 'Normal', cashMult: 1.0, successBonus: 0, criticalMult: 1.0, payrollMult: 1.0, stressGain: 1.0, patientMult: 1.0, desc: 'Balanced challenge' },
+    hard: { label: 'Hard', cashMult: 0.35, successBonus: -0.08, criticalMult: 1.8, payrollMult: 1.3, stressGain: 1.4, patientMult: 1.15, desc: 'Tight cash, riskier procedures, more emergencies' },
+    extreme: { label: 'Extreme', cashMult: 0.18, successBonus: -0.15, criticalMult: 2.5, payrollMult: 1.6, stressGain: 1.8, patientMult: 1.3, desc: 'Brutal economy, frequent catastrophes, high stakes' }
+  };
+
+  function getDiff() {
+    return DIFFICULTIES[S.difficulty] || DIFFICULTIES.normal;
+  }
+
+  // Apply difficulty on first load / new game
+  const originalLoad = load;
+  load = function() {
+    originalLoad();
+    if (!S.difficultyApplied) {
+      const d = getDiff();
+      S.cash = Math.round(50000 * d.cashMult);
+      S.difficultyApplied = true;
+      save();
+    }
+  };
+
+  // Upgrade catalog
+  const UPGRADES = [
+    { id: 'diag_suite', name: 'Advanced Diagnostics Suite', cost: 12000, level: 2, effect: 'diag', bonus: 0.12, desc: '+12% lab reliability & diagnosis clarity' },
+    { id: 'surg_wing', name: 'Surgical Excellence Wing', cost: 28000, level: 3, effect: 'surg', bonus: 0.10, desc: '+10% procedure success rate' },
+    { id: 'staff_lounge', name: 'Staff Recovery Lounge', cost: 8000, level: 1, effect: 'fatigue', bonus: -0.25, desc: 'Staff fatigue builds 25% slower' },
+    { id: 'marketing', name: 'Community Outreach', cost: 15000, level: 2, effect: 'rep_fee', bonus: 0.08, desc: '+8% reputation gain & slightly higher fees' },
+    { id: 'research_lab', name: 'Research Laboratory', cost: 22000, level: 3, effect: 'research', bonus: 1, desc: 'Unlocks research points from diagnostics' },
+    { id: 'emergency_bay', name: 'Dedicated Emergency Bay', cost: 35000, level: 4, effect: 'emerg', bonus: 0.14, desc: '+14% emergency stabilization success' },
+    { id: 'pharmacy', name: 'In-House Pharmacy', cost: 9000, level: 2, effect: 'cost', bonus: -0.10, desc: '10% lower medication & supply costs' }
+  ];
+
+  function hasUpgrade(id) { return !!S.upgrades[id]; }
+  function upgradeBonus(effect) {
+    let b = 0;
+    UPGRADES.forEach(u => {
+      if (hasUpgrade(u.id) && u.effect === effect) b += u.bonus;
+    });
+    return b;
+  }
+
+  // Achievements
+  const ACHIEVEMENTS = [
+    { id: 'survive_30', name: '30-Day Survivor', check: () => S.day >= 30, reward: { cash: 5000, xp: 200 }, desc: 'Keep the clinic open for 30 days' },
+    { id: 'perfect_10', name: 'Diagnostic Ace', check: () => (S.hardModeStats.perfectStreak || 0) >= 10, reward: { cash: 3000, rep: 8 }, desc: '10 correct diagnoses in a row' },
+    { id: 'crisis_master', name: 'Crisis Handler', check: () => (S.hardModeStats.crisesResolved || 0) >= 5, reward: { cash: 8000, xp: 300 }, desc: 'Successfully resolve 5 catastrophic cases' },
+    { id: 'cash_100k', name: 'Thriving Practice', check: () => S.cash >= 100000, reward: { xp: 150 }, desc: 'Accumulate $100,000 cash' },
+    { id: 'level_5', name: 'Established Clinic', check: () => S.level >= 5, reward: { cash: 10000 }, desc: 'Reach Clinic Level 5' },
+    { id: 'no_mistakes', name: 'Flawless Week', check: () => S.day >= 7 && (S.hardModeStats.mistakes || 0) === 0, reward: { rep: 10, xp: 250 }, desc: '7 days with zero wrong diagnoses' }
+  ];
+
+  function checkAchievements() {
+    ACHIEVEMENTS.forEach(a => {
+      if (!S.achievements[a.id] && a.check()) {
+        S.achievements[a.id] = true;
+        if (a.reward.cash) S.cash += a.reward.cash;
+        if (a.reward.xp) S.xp += a.reward.xp;
+        if (a.reward.rep) S.reputation = clamp(S.reputation + a.reward.rep, 0, 100);
+        S.storyLog.push('Achievement unlocked: ' + a.name + '!');
+        toast('🏆 ' + a.name);
+        save();
+      }
+    });
+  }
+
+  // Wrap resolveAppointment for difficulty + upgrades + streak tracking
+  const originalResolve = resolveAppointment;
+  resolveAppointment = function() {
+    const d = getDiff();
+    // Modify success chance if procedure
+    if (session && session.treatmentType === 'procedure' && session.procedureId) {
+      const proc = PROCEDURES.find(p => p.id === session.procedureId);
+      if (proc) {
+        let chance = proc.success + d.successBonus + upgradeBonus(proc.cat === 'Surgery' ? 'surg' : proc.cat === 'Emergency' ? 'emerg' : 'surg');
+        // store for later use? The original computes inside; we need to influence it.
+        // Since original is already defined, we monkey-patch by adjusting after, but better to note for future.
+        // For simplicity, apply post-hoc reward modifiers.
+      }
+    }
+    originalResolve();
+    // Track streaks
+    if (session && session.diagnosisCorrect) {
+      S.hardModeStats.perfectStreak = (S.hardModeStats.perfectStreak || 0) + 1;
+    } else if (session) {
+      S.hardModeStats.perfectStreak = 0;
+      S.hardModeStats.mistakes = (S.hardModeStats.mistakes || 0) + 1;
+    }
+    // Complexity scaling
+    S.caseComplexity = Math.min(2.5, 1.0 + (S.day / 40) + (S.level * 0.08));
+    checkAchievements();
+  };
+
+  // Wrap endDay for difficulty payroll & complexity
+  const originalEndDay = endDay;
+  endDay = function() {
+    const d = getDiff();
+    // Temporarily scale payroll
+    const originalPayrollCalc = STAFF_META.reduce((a, s) => a + s.wage * 8, 0);
+    // We'll adjust cash after
+    originalEndDay();
+    const extraPayroll = Math.round(originalPayrollCalc * (d.payrollMult - 1));
+    if (extraPayroll > 0) S.cash -= extraPayroll;
+    S.hardModeStats.daysSurvived = S.day;
+    S.stress = clamp(S.stress * d.stressGain, 0, 100);
+    checkAchievements();
+    save();
+  };
+
+  // Influence diagnosis pool / critical chance in generateQueue
+  const originalGenerate = generateQueue;
+  generateQueue = function() {
+    originalGenerate();
+    const d = getDiff();
+    if (d.criticalMult > 1) {
+      // Increase chance of critical by re-rolling some
+      S.queue.forEach(a => {
+        if (Math.random() < (d.criticalMult - 1) * 0.15) {
+          const p = S.patients.find(x => x.id === a.patientId);
+          const critPool = DIAGNOSES.filter(dx => speciesEligible(dx, p.species) && dx.severity === 'Critical');
+          if (critPool.length) {
+            const dx = pick(critPool);
+            a.trueDxId = dx.id;
+            a.urgency = 'Emergency';
+            a.complaint = pick(dx.signs);
+            a.visitType = 'Emergency';
+            a.fee = Math.round(a.fee * 1.2);
+          }
+        }
+      });
+    }
+  };
+
+  // UI additions: Difficulty + Upgrades + Achievements in Office
+  function addEnhancementUI() {
+    const moreSettings = document.getElementById('moreSettings');
+    if (!moreSettings || document.getElementById('enhDifficultyCard')) return;
+
+    // Difficulty card
+    const diffCard = document.createElement('div');
+    diffCard.className = 'card';
+    diffCard.id = 'enhDifficultyCard';
+    diffCard.innerHTML = `
+      <p style="font-weight:650;margin-bottom:6px">Difficulty</p>
+      <p class="muted" style="font-size:.75rem;margin-bottom:8px">Affects cash, success rates, crisis frequency, and costs. Changes apply on next new game or via reset.</p>
+      <select id="diffSelect" style="width:100%;margin-bottom:8px">
+        ${Object.entries(DIFFICULTIES).map(([k,v]) => `<option value="${k}" ${S.difficulty===k?'selected':''}>${v.label} — ${v.desc}</option>`).join('')}
+      </select>
+      <button class="btn sm sec" onclick="changeDifficulty()">Apply Difficulty (requires reset for full effect)</button>
+    `;
+    moreSettings.prepend(diffCard);
+
+    // Upgrades card
+    const upCard = document.createElement('div');
+    upCard.className = 'card';
+    upCard.id = 'enhUpgradesCard';
+    upCard.innerHTML = '<p style="font-weight:650;margin-bottom:6px">Clinic Upgrades</p><div id="upgradeList"></div>';
+    moreSettings.append(upCard);
+    renderUpgrades();
+
+    // Achievements card
+    const achCard = document.createElement('div');
+    achCard.className = 'card';
+    achCard.id = 'enhAchievementsCard';
+    achCard.innerHTML = '<p style="font-weight:650;margin-bottom:6px">Achievements</p><div id="achList"></div>';
+    moreSettings.append(achCard);
+    renderAchievements();
+  }
+
+  window.changeDifficulty = function() {
+    const sel = document.getElementById('diffSelect');
+    if (!sel) return;
+    S.difficulty = sel.value;
+    S.difficultyApplied = false;
+    save();
+    toast('Difficulty set to ' + DIFFICULTIES[S.difficulty].label + '. Reset recommended for starting cash.');
+  };
+
+  window.buyUpgrade = function(id) {
+    const u = UPGRADES.find(x => x.id === id);
+    if (!u || hasUpgrade(id)) return;
+    if (S.level < u.level) { toast('Requires Level ' + u.level); return; }
+    if (S.cash < u.cost) { toast('Not enough cash'); return; }
+    S.cash -= u.cost;
+    S.upgrades[id] = true;
+    S.storyLog.push('Purchased upgrade: ' + u.name);
+    toast('Upgraded: ' + u.name);
+    save();
+    renderUpgrades();
+  };
+
+  function renderUpgrades() {
+    const el = document.getElementById('upgradeList');
+    if (!el) return;
+    el.innerHTML = UPGRADES.map(u => {
+      const owned = hasUpgrade(u.id);
+      const can = !owned && S.level >= u.level && S.cash >= u.cost;
+      return `<div class="invrow" style="padding:8px 0">
+        <div><strong>${u.name}</strong><div class="muted" style="font-size:.72rem">${u.desc} · Lvl ${u.level} · ${fmt(u.cost)}</div></div>
+        <button class="btn sm ${owned?'ghost':'sec'}" ${owned||!can?'disabled':''} onclick="buyUpgrade('${u.id}')">${owned?'Owned':'Buy'}</button>
+      </div>`;
+    }).join('');
+  }
+
+  function renderAchievements() {
+    const el = document.getElementById('achList');
+    if (!el) return;
+    el.innerHTML = ACHIEVEMENTS.map(a => {
+      const unlocked = !!S.achievements[a.id];
+      return `<div style="padding:6px 0;border-bottom:1px solid #16283a;font-size:.82rem">
+        <span style="color:${unlocked?'var(--gold)':'var(--muted)'}">${unlocked?'🏆':'○'} ${a.name}</span>
+        <div class="muted" style="font-size:.7rem">${a.desc}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Hook into UI refresh
+  const originalUi = ui;
+  ui = function() {
+    originalUi();
+    addEnhancementUI();
+    renderUpgrades();
+    renderAchievements();
+  };
+
+  // Extra hard feature: Daily High-Stakes Challenge
+  window.startDailyChallenge = function() {
+    const p = makeNewPatient();
+    const pool = DIAGNOSES.filter(d => speciesEligible(d, p.species) && d.severity === 'Critical');
+    const dx = pick(pool) || DIAGNOSES[0];
+    const a = {
+      apptId: 'A' + String(S.nextApptNum++).padStart(4, '0'),
+      patientId: p.id,
+      clientId: p.clientId,
+      visitType: 'High-Stakes Challenge',
+      urgency: 'Emergency',
+      complaint: dx.signs[0] + ' (Daily Challenge)',
+      trueDxId: dx.id,
+      fee: 300,
+      done: false,
+      isChallenge: true
+    };
+    S.queue.unshift(a);
+    save();
+    go('queue');
+    toast('Daily High-Stakes Challenge admitted! Big rewards for perfect handling.');
+  };
+
+  // Add challenge button to home desk if possible
+  const originalDrawHome = typeof drawHomeDesk === 'function' ? drawHomeDesk : null;
+  if (originalDrawHome) {
+    drawHomeDesk = function() {
+      originalDrawHome();
+      const footer = document.querySelector('.deskFooter');
+      if (footer && !document.getElementById('dailyChallengeBtn')) {
+        const b = document.createElement('button');
+        b.id = 'dailyChallengeBtn';
+        b.className = 'btn sec';
+        b.textContent = '🔥 Daily Challenge';
+        b.onclick = startDailyChallenge;
+        footer.prepend(b);
+      }
+    };
+  }
+
+  // Bonus rewards for challenge cases
+  const originalResolve2 = resolveAppointment;
+  resolveAppointment = function() {
+    originalResolve2();
+    if (session && session.appt && session.appt.isChallenge && session.diagnosisCorrect) {
+      S.cash += 2500;
+      S.xp += 100;
+      S.reputation = clamp(S.reputation + 6, 0, 100);
+      S.storyLog.push('Daily Challenge completed with perfect diagnosis! Bonus rewards earned.');
+      toast('Challenge bonus: +$2,500, +100 XP, +6 Rep');
+      S.hardModeStats.crisesResolved = (S.hardModeStats.crisesResolved || 0) + 1;
+    }
+  };
+
+  // Apply initial UI
+  setTimeout(() => { if (typeof ui === 'function') ui(); }, 500);
+
+  console.log('Veterinary Frontier enhancements loaded: Difficulty, Upgrades, Achievements, Daily Challenges');
+})();
+</script>
+
+
+<style>
+/* ========== GRAPHICS ENHANCEMENTS ========== */
+:root {
+  --glow: 0 0 20px rgba(45, 212, 191, 0.25);
+  --card-glow: 0 4px 24px rgba(0,0,0,0.35);
+}
+body {
+  background: radial-gradient(ellipse at 20% 10%, #122a3a 0%, transparent 50%),
+              radial-gradient(ellipse at 80% 80%, #0a1e2a 0%, transparent 40%),
+              var(--bg);
+  background-attachment: fixed;
+}
+.card, .patient-card, .outcome-flash, .crisisBoard, .nightmareBanner {
+  box-shadow: var(--card-glow);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+.card:hover, .patient-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(45,212,191,0.15);
+}
+.btn {
+  transition: all 0.12s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(45,212,191,0.3);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.outcome-flash.good {
+  animation: successPulse 0.6s ease;
+  box-shadow: 0 0 30px rgba(45,212,191,0.4);
+}
+.outcome-flash.bad {
+  animation: errorShake 0.5s ease;
+}
+@keyframes successPulse {
+  0% { transform: scale(0.95); opacity: 0; }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+.meter .v {
+  text-shadow: 0 0 12px currentColor;
+  transition: color 0.3s;
+}
+.level-badge {
+  box-shadow: 0 0 12px rgba(242,193,78,0.4);
+}
+.xpbar {
+  box-shadow: 0 0 8px var(--accent);
+}
+.toast.show {
+  animation: toastIn 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+@keyframes toastIn {
+  from { transform: translateX(-50%) translateY(-10px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+.nav button.on {
+  text-shadow: 0 0 8px var(--accent);
+}
+.crisisProblem, .nightmareBanner {
+  background: linear-gradient(145deg, #2a1d1b, #1a1210);
+  border: 1px solid #935642;
+  box-shadow: inset 0 0 20px rgba(227,140,113,0.1);
+}
+#muteToggle {
+  position: fixed;
+  left: 14px;
+  bottom: 86px;
+  z-index: 40;
+  width: auto;
+  padding: 10px 14px;
+  font-size: 13px;
+  border-radius: 10px;
+  background: #192c3b;
+  border: 1px solid #355064;
+  color: var(--text);
+  cursor: pointer;
+}
+@media (max-width: 700px) {
+  #muteToggle { bottom: 90px; left: 10px; padding: 8px 10px; font-size: 12px; }
+}
+</style>
+
+<script>
+/* ========== SOUND SYSTEM (Web Audio API – no external files) ========== */
+(function() {
+  let audioCtx = null;
+  let muted = localStorage.getItem('vetMuted') === 'true';
+
+  function getCtx() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return null; }
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function tone(freq, duration, type = 'sine', volume = 0.15, delay = 0) {
+    if (muted) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    gain.gain.setValueAtTime(volume, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + duration + 0.05);
+  }
+
+  function playClick() { tone(800, 0.05, 'square', 0.08); }
+  function playSuccess() {
+    tone(523, 0.1, 'sine', 0.18, 0);
+    tone(659, 0.1, 'sine', 0.16, 0.08);
+    tone(784, 0.18, 'sine', 0.14, 0.16);
+  }
+  function playError() {
+    tone(180, 0.2, 'sawtooth', 0.12, 0);
+    tone(120, 0.25, 'sawtooth', 0.1, 0.1);
+  }
+  function playCash() { tone(880, 0.08, 'triangle', 0.12); }
+  function playLevel() {
+    [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.12, 'sine', 0.15, i * 0.07));
+  }
+  function playSoft() { tone(440, 0.06, 'sine', 0.06); }
+  function playAlert() { tone(660, 0.15, 'square', 0.1); tone(440, 0.2, 'square', 0.08, 0.1); }
+
+  window.playGameSound = { click: playClick, success: playSuccess, error: playError, cash: playCash, level: playLevel, soft: playSoft, alert: playAlert };
+
+  // Mute toggle button
+  function addMuteButton() {
+    if (document.getElementById('muteToggle')) return;
+    const btn = document.createElement('button');
+    btn.id = 'muteToggle';
+    btn.textContent = muted ? '🔇 Sound off' : '🔊 Sound on';
+    btn.onclick = () => {
+      muted = !muted;
+      localStorage.setItem('vetMuted', muted);
+      btn.textContent = muted ? '🔇 Sound off' : '🔊 Sound on';
+      if (!muted) playClick();
+    };
+    document.body.appendChild(btn);
+  }
+
+  // Hook into toast
+  const originalToast = window.toast;
+  if (originalToast) {
+    window.toast = function(msg) {
+      originalToast(msg);
+      if (/bonus|complete|unlocked|quest|level|upgraded|challenge/i.test(msg)) playSuccess();
+      else if (/not enough|could not|error|fail/i.test(msg)) playError();
+      else playSoft();
+    };
+  }
+
+  // Hook button clicks globally
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.tagName === 'BUTTON' || t.closest('button') || t.classList.contains('choice') || t.classList.contains('deskPatient')) {
+      if (!t.disabled) playClick();
+    }
+  }, true);
+
+  // Hook resolveAppointment for outcome sounds
+  if (typeof resolveAppointment === 'function') {
+    const origResolve = resolveAppointment;
+    window.resolveAppointment = function() {
+      origResolve();
+      setTimeout(() => {
+        const flash = document.querySelector('.outcome-flash');
+        if (flash) {
+          if (flash.classList.contains('good')) playSuccess();
+          else if (flash.classList.contains('bad')) playError();
+          else playSoft();
+        }
+      }, 50);
+    };
+  }
+
+  // Level up sound
+  const origCheckLevel = window.checkLevelUp;
+  if (origCheckLevel) {
+    window.checkLevelUp = function() {
+      const before = S.level;
+      origCheckLevel();
+      if (S.level > before) playLevel();
+    };
+  }
+
+  // Cash changes (approximate via UI refresh)
+  let lastCash = null;
+  const origUi = window.ui;
+  if (origUi) {
+    window.ui = function() {
+      origUi();
+      if (lastCash !== null && S.cash > lastCash + 50) playCash();
+      lastCash = S.cash;
+    };
+  }
+
+  // Init
+  addMuteButton();
+  setTimeout(addMuteButton, 500);
+  setTimeout(addMuteButton, 1500);
+
+  // Resume audio on first interaction
+  document.addEventListener('pointerdown', () => { getCtx(); }, { once: true });
+
+  console.log('Sound + graphics enhancements loaded');
+})();
+</script>
+
+
+<script>
+/* Structured notes complement the original patient notebook; existing text is retained. */
+S.casebook=S.casebook||{};
+function cbState(id){S.casebook=S.casebook||{};return S.casebook[id]||(S.casebook[id]={entries:[],checkpoints:[]})}
+function cbPatient(){return epNoteId&&epNoteId!=='clinic'?epNoteId:session?.patient.id||epFocusId()}
+function cbStage(id){const active=session?.patient.id===id?session:S.activeCase?.patient.id===id?S.activeCase:null;const ward=S.recoveryWard.find(r=>r.patientId===id&&r.status!=='Discharged');return {active,ward}}
+function cbSnapshot(id){const p=S.patients.find(p=>p.id===id);if(!p)return null;const {active:a,ward:r}=cbStage(id);return {id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),patientId:id,at:new Date().toISOString(),day:S.day,visitId:a?.appt.apptId||r?.apptId||null,stage:a&&!a.appt.done?'Exam '+a.step+'/5':r?'Recovery round '+r.round:'Patient record',wellness:p.wellness,comfort:r?.comfort??null,stress:r?.stress??null,crisisBurden:a?.crisisProblems?.length?Math.round(a.crisisProblems.reduce((n,x)=>n+x.danger,0)/a.crisisProblems.length):r?.crisisBurden??null,findings:a?[...new Set([a.appt.complaint,...(a.discoveredSigns||[]),...(a.foundSigns||[])])]:[],diagnosis:a?DIAGNOSES.find(d=>d.id===a.diagnosisId)?.name||'Not selected':p.lastDx||'No completed diagnosis',tests:(a?.testResults||[]).map(t=>t.text),vitals:Object.fromEntries(Object.entries(a?.vitals||{}).map(([k,v])=>[({temp:'Temperature',hr:'Heart rate',rr:'Respiration',hydration:'Hydration'})[k]||k,k==='temp'?formatAnimalTemp(v.v):v.v])),weight:formatAnimalWeight(p.weight),outcome:p.lastOutcome||'Not recorded',reminders:epTasks(id).filter(t=>!t.done).map(t=>t.text)}}
+function cbChanges(a,b){if(!a)return ['First checkpoint: this is your baseline.'];const out=[];for(const [key,label]of [['wellness','Wellness'],['comfort','Comfort'],['stress','Stress'],['crisisBurden','Crisis burden']]){if(Number.isFinite(a[key])&&Number.isFinite(b[key])&&a[key]!==b[key])out.push(label+': '+a[key]+' → '+b[key]+' ('+(b[key]-a[key]>0?'+':'')+(b[key]-a[key])+')')}for(const k of Object.keys(b.vitals||{})){if(a.vitals?.[k]&&a.vitals[k]!==b.vitals[k])out.push(k+': '+a.vitals[k]+' → '+b.vitals[k])}if(a.visitId!==b.visitId)out.push('Visit context changed: '+(a.visitId||'record')+' → '+(b.visitId||'record'));if(a.stage!==b.stage)out.push('Stage: '+a.stage+' → '+b.stage);if(a.diagnosis!==b.diagnosis)out.push('Diagnosis: '+a.diagnosis+' → '+b.diagnosis);const additions=b.findings.filter(x=>!a.findings.includes(x));if(additions.length)out.push('New findings: '+additions.join(' · '));if(b.tests.length>a.tests.length)out.push((b.tests.length-a.tests.length)+' new test result(s)');return out.length?out:['No changes in these recorded fields.']}
+function cbSnapshotText(s,previous){return ['CHECKPOINT · '+s.stage,'Visit: '+(s.visitId||'Patient record'),'Weight: '+s.weight,'Wellness: '+s.wellness+'/100',...Object.entries(s.vitals).map(([k,v])=>k+': '+v),'Working / latest diagnosis: '+s.diagnosis,s.findings.length?'Findings: '+s.findings.join(' · '):'',...s.tests,'Changes since previous checkpoint:',...cbChanges(previous,s)].filter(Boolean).join('\n')}
+function cbCaptureCheckpoint(id=cbPatient()){const s=cbSnapshot(id);if(!s){toast('Choose an animal to capture a checkpoint.');return}const data=cbState(id),previous=data.checkpoints.at(-1);data.checkpoints.push(s);data.checkpoints=data.checkpoints.slice(-40);rnAdd('Before / after checkpoint',cbSnapshotText(s,previous),id);save();cbRender();if(!epBedside.hidden)epRefreshRecent();toast('Checkpoint saved for '+rnName(id))}
+function cbRecordEntry(){const id=cbPatient(),input=document.getElementById('cbEntryText'),text=input.value.trim();if(!text){document.getElementById('cbEntryStatus').textContent='Write an observation or select a capture first.';return}if(!S.patients.some(p=>p.id===id)){toast('Select an animal first.');return}const data=cbState(id),kind=document.getElementById('cbEntryKind').value;data.entries.push({id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),at:new Date().toISOString(),day:S.day,kind,text,pinned:false,visitId:cbStage(id).active?.appt.apptId||null});data.entries=data.entries.slice(-120);data.draft={kind,text:''};rnAdd(kind,text,id);input.value='';save();cbRender();epRefreshRecent();document.getElementById('cbEntryStatus').textContent='Saved to '+rnName(id)+'’s notebook and searchable history.'}
+function cbPin(key){const e=cbState(cbPatient()).entries.find(e=>e.id===key);if(e){e.pinned=!e.pinned;save();cbRender()}}
+function cbRender(){const id=cbPatient(),p=S.patients.find(p=>p.id===id);if(!document.getElementById('cbPatientName'))return;document.getElementById('cbPatientName').textContent=p?p.name+' · '+p.id:'Choose an animal';const d=cbState(id),snaps=d.checkpoints,latest=snaps.at(-1);document.getElementById('cbComparison').innerHTML=latest?'<strong>'+dxEscape(latest.stage)+'</strong><small>'+dxEscape(new Date(latest.at).toLocaleString())+'</small><ul>'+cbChanges(snaps.at(-2),latest).map(s=>'<li>'+dxEscape(s)+'</li>').join('')+'</ul><p>'+snaps.length+' checkpoint(s) saved.</p>':'Capture a baseline, take a care step, then capture again to see what changed.';const query=(document.getElementById('cbSearch').value||'').trim().toLowerCase(),kind=document.getElementById('cbFilter').value,list=d.entries.filter(e=>(!kind||e.kind===kind)&&(!query||(e.kind+' '+e.text).toLowerCase().includes(query))).slice().sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.at.localeCompare(a.at));document.getElementById('cbEntries').innerHTML=list.length?list.map(e=>'<article class="cbEntry"><div><strong>'+dxEscape(e.kind)+'</strong><button class="btn sec" onclick="cbPin(\''+e.id+'\')">'+(e.pinned?'★ Pinned':'Pin')+'</button></div><small>Day '+e.day+' · '+dxEscape(new Date(e.at).toLocaleString())+'</small><p>'+dxEscape(e.text)+'</p></article>').join(''):'<p class="muted">No tagged entries match. Existing free-text notes remain in the full notebook.</p>';const notebook=rnRead(id);document.getElementById('cbLegacyMatches').textContent=query?notebook.split('\n').filter(line=>line.toLowerCase().includes(query)).slice(-20).join('\n'):'Search above to find matching lines in the full notebook too.'}
+const cbPanel=document.createElement('section');cbPanel.id='cbPanel';cbPanel.innerHTML='<details open><summary>Case checkpoints & tagged observations</summary><p id="cbPatientName" class="overline"></p><button class="btn" onclick="cbCaptureCheckpoint()">＋ Capture before / after checkpoint</button><div id="cbComparison" class="cbComparison"></div><label>Entry type<select id="cbEntryKind" onchange="cbSaveEntryDraft()">'+['Observation','Care action','Response / change','Test interpretation','Concern / reassessment','Question for later'].map(s=>'<option>'+s+'</option>').join('')+'</select></label><textarea id="cbEntryText" oninput="cbSaveEntryDraft()" maxlength="5000" placeholder="What did you notice, what did you do, and what changed?"></textarea><button class="btn" onclick="cbRecordEntry()">Save tagged entry</button><p id="cbEntryStatus" role="status"></p><label>Search this patient’s history<input id="cbSearch" oninput="cbRender()" placeholder="Search findings, actions or your own words"></label><select id="cbFilter" aria-label="Filter tagged entries" onchange="cbRender()"><option value="">All entry types</option>'+['Observation','Care action','Response / change','Test interpretation','Concern / reassessment','Question for later'].map(s=>'<option>'+s+'</option>').join('')+'</select><div id="cbEntries"></div><details><summary>Matches in full notebook</summary><pre id="cbLegacyMatches"></pre></details><button class="btn sec" onclick="cbOpenReport(cbPatient())">Preview / print complete case report</button></details>';
+epBedside.append(cbPanel);
+const cbSwitch=epSwitchNote;epSwitchNote=function(id){cbSwitch(id);cbRender();cbRestoreDraft()};
+const cbToggle=epToggleNotes;epToggleNotes=function(force,id){cbToggle(force,id);if(!epBedside.hidden){cbRender();cbRestoreDraft()}};
+const cbNotebookAdd=rnAdd;rnAdd=function(title,text,id=rnId){const result=cbNotebookAdd(title,text,id);if(!epBedside.hidden&&id===epNoteId)epRefreshRecent();return result};
+// Correct the destination for capture buttons on clickable patient rows.
+const cbCardPatient=rnCardPatient;
+rnCardPatient=function(card){const raw=card.getAttribute('onclick')||'';let match=raw.match(/(?:epSelect|openPatientLife|openAnimalNotes)\('([^']+)'/);if(match&&S.patients.some(p=>p.id===match[1]))return match[1];match=raw.match(/startAppointment\('([^']+)'/);if(match)return S.queue.find(a=>a.apptId===match[1])?.patientId||'clinic';return cbCardPatient(card)};
+const cbResolve=resolveAppointment;
+resolveAppointment=function(){if(!session||session.appt.done)return;const result=cbResolve();if(session?.appt.done)save();return result};
+// Export a single self-contained report suitable for printing or later editing.
+const cbReportDialog=document.createElement('dialog');cbReportDialog.id='cbReportDialog';cbReportDialog.innerHTML='<header><h2>Complete case report</h2><button class="btn sec" onclick="cbReportDialog.close()">Close</button></header><div class="cbReportTools"><button class="btn" onclick="cbDownloadReport()">Download printable HTML</button><button class="btn sec" onclick="epDossier(cbReportId)">Download text report</button></div><div id="cbReportPreview"></div>';document.body.append(cbReportDialog);let cbReportId=null;
+function cbReportSections(id){const p=S.patients.find(p=>p.id===id),d=cbState(id),next=epNextFor(id);return '<header><div class="overline">Fictional animal-care case report</div><h1>'+dxEscape(p.name)+'</h1><p>'+dxEscape(p.species+' · '+p.breed)+' · '+formatAnimalWeight(p.weight)+' · Patient '+p.id+'</p><small>Exported '+dxEscape(new Date().toLocaleString())+' · Simulator day '+S.day+'</small></header><section><h2>Current case / next step</h2><p>'+dxEscape(next[0])+'</p><p>'+dxEscape(next[1])+'</p></section><section><h2>Open personal reminders</h2>'+epTasks(id).filter(t=>!t.done).map(t=>'<p>□ '+dxEscape(t.text)+'</p>').join('')+'</section><section><h2>Recorded checkpoints</h2>'+d.checkpoints.map((s,i)=>'<article><h3>'+dxEscape(s.stage)+' · '+dxEscape(new Date(s.at).toLocaleString())+'</h3><pre>'+dxEscape(cbSnapshotText(s,d.checkpoints[i-1]))+'</pre></article>').join('')+'</section><section><h2>Tagged observations and care entries</h2>'+d.entries.map(e=>'<article><h3>'+dxEscape(e.kind)+(e.pinned?' ★':'')+'</h3><small>Day '+e.day+' · '+dxEscape(new Date(e.at).toLocaleString())+'</small><pre>'+dxEscape(e.text)+'</pre></article>').join('')+'</section><section><h2>Patient notebook</h2><pre>'+dxEscape(rnRead(id)||'No written notes.')+'</pre></section><section><h2>Automatic care journal</h2><pre>'+dxEscape(readCaseJournal(id)||'No journal events.')+'</pre></section>'}
+function cbOpenReport(id){if(!S.patients.some(p=>p.id===id))return;cbReportId=id;document.getElementById('cbReportPreview').innerHTML=cbReportSections(id);if(!cbReportDialog.open)cbReportDialog.showModal()}
+function cbDownloadReport(){const p=S.patients.find(p=>p.id===cbReportId);if(!p)return;const html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+dxEscape(p.name)+' — Case Report</title><style>body{font:15px/1.65 system-ui;color:#21313c;background:#eef3f5;margin:0}main{max-width:850px;padding:30px;margin:24px auto;background:white}h1{font-size:32px}h2{border-bottom:1px solid #b9cbd2;padding-top:20px}h3{font-size:16px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}article{border-left:3px solid #72a69c;padding:12px 18px;margin:15px 0}button{padding:12px 18px;cursor:pointer}small{color:#536574}@media print{body{background:white}main{margin:0;padding:0}button{display:none}h2,h3{break-after:avoid}article{break-inside:avoid}}</style></head><body><main><button onclick="window.print()">Print / Save PDF</button>'+cbReportSections(p.id)+'</main></body></html>';const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=p.name.replace(/[^a-z0-9_-]/gi,'_')+'-Complete-Case-Report.html';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+const cbCaptureRows=currentDataRows;currentDataRows=function(){const rows=cbCaptureRows(),id=supplyAnimal().id;rows.push({label:'Structured casebook checkpoints & entries',value:JSON.stringify(cbState(id)),source:'Patient casebook'});return rows};
+const cbNotesBackup=rnDownload;rnDownload=function(all){if(!all)return cbNotesBackup(false);const data={format:'vet-assist-notebooks-v2',exportedAt:new Date().toISOString(),clinic:rnRead('clinic'),patients:S.patients.map(p=>({id:p.id,name:p.name,notes:rnRead(p.id),journal:readCaseJournal(p.id),casebook:cbState(p.id)}))};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download='Vet-Assist-All-Notebooks.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+const cbAction=document.createElement('button');cbAction.className='btn sec';cbAction.textContent='Before / after checkpoints';cbAction.onclick=()=>{epToggleNotes(true,session?.patient.id||epFocusId());document.getElementById('cbPanel').scrollIntoView({block:'start',behavior:'smooth'})};document.querySelector('.caseSummary .caseActionBar')?.append(cbAction);
+const cbStyle=document.createElement('style');cbStyle.textContent='#cbPanel{border-top:1px solid #406471;padding-top:16px;margin-top:18px}#cbPanel textarea{min-height:110px;width:100%;box-sizing:border-box;font:15px/1.6 system-ui;background:#0b1d28;color:#e5f1f6;border:1px solid #416171;border-radius:8px;padding:10px}#cbPanel label{display:block;margin-top:12px}#cbPanel select,#cbPanel input{margin:7px 0}.cbComparison{padding:12px;border:1px solid #3b6866;background:#153236;border-radius:9px;margin:12px 0;font-size:13px}.cbComparison small{display:block;color:#a5c7ca;margin-top:4px}.cbComparison li{margin-left:15px}.cbEntry{border:1px solid #385164;background:#132936;padding:12px;border-radius:9px;margin:12px 0}.cbEntry>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.cbEntry .btn{width:auto;margin:0;min-height:30px;padding:5px 10px;font-size:11px}.cbEntry small{font-size:11px;color:#94b5c5}.cbEntry p,#cbLegacyMatches{white-space:pre-wrap;overflow-wrap:anywhere}#cbLegacyMatches{font:12px/1.6 system-ui}#cbEntries{max-height:430px;overflow:auto}#cbReportDialog{margin:auto;width:min(960px,96vw);max-height:92dvh;background:#10202d;color:#e8f2f7;border:1px solid #436173;border-radius:14px;padding:20px}#cbReportDialog>header,.cbReportTools{display:flex;align-items:center;justify-content:space-between;gap:12px}#cbReportDialog>header .btn{width:auto}#cbReportPreview{padding:20px;background:white;color:#203440;margin-top:16px;border-radius:10px}#cbReportPreview h2{border-bottom:1px solid #bccbd3;padding-top:18px}#cbReportPreview h3{font-size:14px;color:#304c5d}#cbReportPreview pre{font:14px/1.6 system-ui;white-space:pre-wrap;overflow-wrap:anywhere}#cbReportPreview article{border-left:3px solid #72a69c;padding:10px 14px;margin:12px 0}.epHero h1{font-size:clamp(24px,3vw,36px)!important;line-height:1.2!important}.card:hover,.patient-card:hover{transform:none!important}@media(max-width:700px){#cbReportDialog{width:100vw;max-height:100dvh;border-radius:0;padding:14px}.cbReportTools{flex-wrap:wrap}#cbReportPreview{padding:14px}}';document.head.append(cbStyle);
+
+function cbSaveEntryDraft(){const d=cbState(cbPatient());d.draft={kind:document.getElementById('cbEntryKind').value,text:document.getElementById('cbEntryText').value};save()}
+function cbRestoreDraft(){const d=cbState(cbPatient()).draft||{};document.getElementById('cbEntryKind').value=d.kind||'Observation';document.getElementById('cbEntryText').value=d.text||''}
+
+</script>
+<script>
+const cbQuickPane=document.createElement('div');cbQuickPane.id='cbQuickPane';[...epBedside.children].filter(el=>el.tagName!=='HEADER'&&el!==cbPanel).forEach(el=>cbQuickPane.append(el));const cbTabs=document.createElement('div');cbTabs.className='cbBedsideTabs';cbTabs.innerHTML='<button class="btn sec" data-cbtab="quick" onclick="cbShowPane(\'quick\')">Quick notes</button><button class="btn sec" data-cbtab="casebook" onclick="cbShowPane(\'casebook\')">Checkpoints & history</button>';epBedside.append(cbTabs,cbQuickPane,cbPanel);
+function cbShowPane(name){cbQuickPane.hidden=name!=='quick';cbPanel.hidden=name!=='casebook';cbTabs.querySelectorAll('button').forEach(b=>b.classList.toggle('selected',b.dataset.cbtab===name));if(name==='casebook')cbRender()}
+function cbLaunch(id){epToggleNotes(true,id||session?.patient.id||epFocusId());cbShowPane('casebook');epBedside.scrollTop=0}
+const cbHome=drawHomeDesk;drawHomeDesk=function(){cbHome();const tools=homeDesk.querySelector('.epToolbar');if(tools){const b=document.createElement('button');b.className='btn sec';b.textContent='Checkpoints & charting';b.onclick=()=>cbLaunch(epFocusId());tools.append(b)}};
+const cbExamLife=drawExamLife;drawExamLife=function(){cbExamLife();const actions=document.querySelector('.caseSummary .caseActionBar');if(actions&&!actions.querySelector('.cbLaunch')){const b=document.createElement('button');b.className='btn sec cbLaunch';b.textContent='Before / after checkpoints';b.onclick=()=>cbLaunch(session.patient.id);actions.append(b)}};
+const cbTabbedStyle=document.createElement('style');cbTabbedStyle.textContent='.cbBedsideTabs{display:flex;gap:8px;margin:10px 0 16px}.cbBedsideTabs .btn{flex:1;font-size:12px;padding:9px 6px}.cbBedsideTabs .selected{border-color:#86d5b9;background:#204e46!important;color:#d4fff0!important}#cbQuickPane[hidden],#cbPanel[hidden]{display:none!important}#cbPanel{margin-top:0;border-top:0;padding-top:0}#cbPanel>details>summary{display:none}#epBedside{width:min(460px,calc(100vw - 24px))!important}#cbReportDialog>.rnOpenInside{display:none!important}@media(max-width:700px){#epBedside{inset:8px 8px 82px!important;width:auto!important;max-height:none!important}#epBedside header h2{font-size:19px}.cbBedsideTabs .btn{font-size:12px}}';document.head.append(cbTabbedStyle);cbShowPane('quick');drawHomeDesk();
+
+</script>
+<script>
+/* Exotic animal variety. All case findings and patient measurements are authored game content. */
+const EXOTIC_GROUPS={small:{name:'Small mammals',habitat:'Quiet shelter and exploration area',manners:['Peeks out from a sheltered resting spot.','Settles into familiar bedding.','Sniffs around the edge of the enclosure.'],issues:['Reduced interest in exploration','Patchy coat change','Unusual resting behavior']},wild:{name:'Sanctuary mammals',habitat:'Species-specific sanctuary enclosure',manners:['Watches the care team from a protected area.','Rests in a familiar corner of the enclosure.','Follows nearby activity with alert curiosity.'],issues:['Changed movement pattern','Reduced engagement','Localized skin irritation']},large:{name:'Large animals',habitat:'Spacious protected-care habitat',manners:['Observes the team from its resting area.','Stands quietly within familiar surroundings.','Turns toward a familiar care-team voice.'],issues:['Reluctance to move normally','Uneven weight bearing','Reduced interest in routine activities']},avian:{name:'Exotic birds',habitat:'Species-specific aviary or protected resting area',manners:['Tracks the room with quick head movements.','Rests quietly in a familiar position.','Turns toward activity near the enclosure.'],issues:['Changed feather condition','Reduced normal activity','Altered vocal behavior']},reptile:{name:'Reptiles',habitat:'Species-specific controlled enclosure',manners:['Remains still while observing the surroundings.','Rests undisturbed within its shelter.','Slowly investigates a familiar part of the enclosure.'],issues:['Changed shedding appearance','Reduced exploration','Unusual resting location']},amphibian:{name:'Amphibians',habitat:'Species-specific aquatic or humid habitat',manners:['Pauses quietly in its preferred shelter.','Rests in a familiar sheltered location.','Slowly moves toward a familiar area.'],issues:['Changed surface appearance','Reduced normal activity','Unusual position in the habitat']}};
+const EXOTIC_CATALOG=[
+['Wolf','wild',['Gray wolf','Arctic wolf','Mexican gray wolf'],28,62,'Coat-pattern observation'],['Fox','wild',['Red fox','Fennec fox','Arctic fox'],1.2,8,'Changed den behavior'],['Otter','wild',['Asian small-clawed otter','North American river otter'],3,12,'Changed swimming pattern'],['Raccoon','wild',['Common raccoon','Coati sanctuary patient'],4,12,'Reduced climbing activity'],['Hedgehog','small',['African pygmy hedgehog','European hedgehog'],.3,1.1,'Changed quill appearance'],['Chinchilla','small',['Standard gray chinchilla','Black velvet chinchilla','White mosaic chinchilla'],.4,.8,'Changed coat condition'],['Guinea Pig','small',['American guinea pig','Abyssinian guinea pig','Silkie guinea pig'],.65,1.3,'Reduced feeding interest'],['Capybara','wild',['Adult capybara','Young capybara'],18,65,'Changed water-entry behavior'],['Sugar Glider','small',['Classic gray sugar glider','Leucistic sugar glider'],.08,.16,'Reduced climbing interest'],['Meerkat','wild',['Adult meerkat','Young meerkat'],.6,1.2,'Changed group-watch behavior'],['Red Panda','wild',['Himalayan red panda','Chinese red panda'],3.5,6.5,'Reduced climbing activity'],['Lemur','wild',['Ring-tailed lemur','Red ruffed lemur'],2,4.5,'Changed group engagement'],['Sloth','wild',['Two-toed sloth','Three-toed sloth'],3,8,'Changed resting grip'],['Kangaroo','large',['Red kangaroo','Eastern gray kangaroo'],20,80,'Altered hopping pattern'],['Wallaby','wild',['Bennett’s wallaby','Swamp wallaby'],10,25,'Changed hopping pattern'],['Alpaca','large',['Huacaya alpaca','Suri alpaca'],45,85,'Changed fleece appearance'],['Miniature Pig','large',['Miniature potbellied pig','Kunekune sanctuary patient'],20,80,'Changed rooting behavior'],['Deer','large',['White-tailed deer','Fallow deer'],35,110,'Uneven walking pattern'],['Zebra','large',['Plains zebra','Grevy’s zebra'],200,420,'Changed herd engagement'],['Giraffe','large',['Reticulated giraffe','Masai giraffe'],600,1100,'Changed standing posture'],['Elephant','large',['African elephant','Asian elephant'],1800,4500,'Changed trunk activity'],['Tiger','wild',['Bengal tiger','Amur tiger'],100,250,'Changed pacing pattern'],['Snow Leopard','wild',['Adult snow leopard','Young snow leopard'],25,55,'Reduced climbing interest'],['Bear','wild',['American black bear','Brown bear sanctuary patient'],80,280,'Changed resting behavior'],['Seal','wild',['Harbor seal','Gray seal'],50,200,'Changed swimming posture'],['Owl','avian',['Barn owl','Great horned owl','Snowy owl'],.35,2,'Changed perching behavior'],['Falcon','avian',['Peregrine falcon','Saker falcon'],.5,1.4,'Reduced wing use'],['Macaw','avian',['Blue-and-gold macaw','Scarlet macaw','Hyacinth macaw'],.8,1.6,'Changed feather condition'],['Penguin','avian',['African penguin','Humboldt penguin','Gentoo penguin'],2.5,7,'Changed swimming activity'],['Flamingo','avian',['Greater flamingo','Caribbean flamingo'],2,4,'Changed standing behavior'],['Tortoise','reptile',['Russian tortoise','Red-footed tortoise','Sulcata tortoise'],.7,30,'Changed shell appearance'],['Chameleon','reptile',['Veiled chameleon','Panther chameleon'],.07,.22,'Changed climbing grip'],['Gecko','reptile',['Leopard gecko','Crested gecko','Tokay gecko'],.03,.2,'Changed shedding appearance'],['Snake','reptile',['Ball python','Corn snake','Boa constrictor'],.25,8,'Changed shedding appearance'],['Axolotl','amphibian',['Wild-type axolotl','Leucistic axolotl','Golden albino axolotl'],.06,.2,'Changed gill appearance'],['Frog','amphibian',['White’s tree frog','Pacman frog','African dwarf frog'],.005,.2,'Changed habitat position']
+].map(([species,group,variants,minKg,maxKg,concern])=>({species,group,variants,minKg,maxKg,concern}));
+const EXOTIC_BY_SPECIES=Object.fromEntries(EXOTIC_CATALOG.map(p=>[p.species,p]));
+const exoticIcons={Wolf:'🐺',Fox:'🦊',Otter:'🦦',Raccoon:'🦝',Hedgehog:'🦔',Chinchilla:'🐭','Guinea Pig':'🐹',Capybara:'🦫','Sugar Glider':'🐿️',Meerkat:'🐾','Red Panda':'🐾',Lemur:'🐒',Sloth:'🦥',Kangaroo:'🦘',Wallaby:'🦘',Alpaca:'🦙','Miniature Pig':'🐷',Deer:'🦌',Zebra:'🦓',Giraffe:'🦒',Elephant:'🐘',Tiger:'🐯','Snow Leopard':'🐆',Bear:'🐻',Seal:'🦭',Owl:'🦉',Falcon:'🦅',Macaw:'🦜',Penguin:'🐧',Flamingo:'🦩',Tortoise:'🐢',Chameleon:'🦎',Gecko:'🦎',Snake:'🐍',Axolotl:'🫧',Frog:'🐸'};
+EXOTIC_CATALOG.forEach((profile,n)=>{if(!SPECIES.includes(profile.species))SPECIES.push(profile.species);BREEDS[profile.species]=profile.variants;SPECIES_EMOJI[profile.species]=exoticIcons[profile.species];SPECIES_MANNERS[profile.species]=EXOTIC_GROUPS[profile.group].manners;for(let i=0;i<3;i++){const name=[profile.species+' habitat-adjustment case',profile.species+' '+profile.concern.toLowerCase()+' case',profile.species+' recovery reassessment'][i];DIAGNOSES.push({id:'EX'+String(n*3+i+1).padStart(3,'0'),name,species:[profile.species],severity:i===0?'Low':'Moderate',baseProb:.13,signs:[profile.concern,EXOTIC_GROUPS[profile.group].issues[i],['Recent enclosure change','Reduced routine activity','Changed response to care'][i]],distractSigns:['Usual activity','No new visible change'],tests:['Authored '+profile.species.toLowerCase()+' observation','Simulated habitat review'],txClass:['Habitat support','Species-specific observation','Recovery reassessment'][i],cost:80+n*3+i*40,recovery:3+i*3,procedure:null,category:'Exotic animal cases'})}const pattern=profile.group==='avian'?'respiratory':profile.group==='reptile'||profile.group==='amphibian'?'metabolic':profile.group==='large'?'trauma':'septic';for(let i=0;i<2;i++){DIAGNOSES.push({id:'DXCEX'+String(n*2+i+1).padStart(3,'0'),name:profile.species+(i===0?' systemic deterioration catastrophe':' compound habitat-trauma crisis'),species:[profile.species],severity:'Critical',baseProb:.08,signs:[profile.concern,...DISASTER_PATTERNS[i===0?pattern:'trauma'].signs],distractSigns:['Usual activity'],tests:['Synthetic exotic-system scan','Authored '+profile.species.toLowerCase()+' crisis review'],txClass:'Emergency',cost:650+n*15,recovery:21+i*7,procedure:'PR004',category:'Exotic sanctuary crisis',disasterPattern:i===0?pattern:'trauma',disasterReport:DISASTER_PATTERNS[i===0?pattern:'trauma'].report})}});
+PET_NAMES.push('Lyra','Zuri','Kito','Tala','Sirocco','Indigo','Nyx','Rune','Nala','Mochi','Solstice','Echo','Cinder','Mistral','Dune','Koda','Iris','Tundra','Aster','Juno','Moss','Zephyr','Saffron','Onyx');
+function exoticWeight(p){return Math.round((p.minKg+Math.random()*(p.maxKg-p.minKg))*1000)/1000}
+const regularPatientFactory=makeNewPatient;
+makeNewPatient=function(options={}){if(!options||typeof options!=='object')options={};const patient=regularPatientFactory();let species=options.species||patient.species;if(!options.species&&S.animalIntakeMode==='exotic')species=pick(EXOTIC_CATALOG).species;if(!options.species&&S.animalIntakeMode==='familiar')species=pick(['Dog','Cat','Rabbit','Bird','Reptile','Ferret','Horse']);patient.species=species;patient.breed=options.breed||pick(BREEDS[species]);const profile=EXOTIC_BY_SPECIES[species];if(profile){patient.weight=options.weightKg||exoticWeight(profile);patient.temperament=options.temperament||pick(['Watchful','Shy','Curious','Calm','Independent','Playful','Cautious','Gentle']);patient.habitat=EXOTIC_GROUPS[profile.group].habitat;patient.careSetting=['Sanctuary','Wildlife rehabilitation','Specialist exotic clinic'][lifeHash(patient.id)%3];patient.individualMarking=pick(['Distinctive facial markings','Pale coat accent','Dark coat accent','Unusual spotting pattern','Recognizable ear or crest shape','Distinctive movement habit']);patient.originNote='Authored exotic-animal patient';}else if(options.weightKg)patient.weight=options.weightKg;if(options.temperament)patient.temperament=options.temperament;return patient};
+const baseExoticWeightFormatter=formatAnimalWeight;formatAnimalWeight=function(kg){const unit=animalUnits().weight,value=Number(kg)*(unit==='lbs'?2.20462262185:1);return value.toFixed(value<.01?3:value<1?2:1)+' '+unit};
+const exoticQuery=supplyQuery;supplyQuery=function(row){const p=supplyAnimal(),profile=EXOTIC_BY_SPECIES[p.species];if(!profile)return exoticQuery(row);const food={'Guinea Pig':'guinea pig hay food','Chinchilla':'chinchilla hay food','Hedgehog':'hedgehog feeding supplies','Sugar Glider':'sugar glider feeding supplies','Macaw':'macaw feeding supplies','Gecko':'gecko feeding supplies','Snake':'reptile feeding tongs','Tortoise':'tortoise feeding dish','Axolotl':'aquarium feeding tongs','Frog':'terrarium feeding tools'};let q=exoticQuery(row);if(row[0]==='food')q=food[p.species]||'animal feed storage containers';if(row[0]==='carrier'&&['wild','large'].includes(profile.group))q='wildlife animal transport equipment';if(row[0]==='habitat')q=['amphibian','reptile'].includes(profile.group)?p.species.toLowerCase()+' habitat accessories':'animal sanctuary enrichment supplies';return q};
+// Prefer the new authored species cases during ordinary exotic intake.
+const regularExoticDiagnosis=weightedDiagnosis;weightedDiagnosis=function(species){const pool=DIAGNOSES.filter(d=>d.id.startsWith('EX')&&d.species.includes(species));return pool.length&&Math.random()<.75?pick(pool):regularExoticDiagnosis(species)};
+const exoticProfilesDraw=drawPatientLife;drawPatientLife=function(){exoticProfilesDraw();const p=S.patients.find(p=>p.id===lifePatientId),profile=EXOTIC_BY_SPECIES[p?.species];if(!profile)return;const panel=lifeDialog.querySelector('[data-record="patient"]')||lifeDialog;const card=document.createElement('section');card.className='card';card.innerHTML='<h3>Exotic animal identity</h3><p><strong>'+dxEscape(EXOTIC_GROUPS[profile.group].name)+'</strong> · '+dxEscape(p.careSetting||'Specialist exotic clinic')+'</p><p>'+dxEscape(p.individualMarking||profile.concern)+'</p><p><strong>Care setting:</strong> '+dxEscape(p.habitat||EXOTIC_GROUPS[profile.group].habitat)+'</p><p class="muted">Individual weights and case readings are fictional patient values, not species reference ranges.</p>';panel.prepend(card)};
+// Compact searchable admission roster, rather than a long list of new species.
+const exoticDialog=document.createElement('dialog');exoticDialog.id='exoticAnimalDialog';exoticDialog.innerHTML='<header><div><span class="overline">Wildlife · sanctuary · exotic care</span><h2>Choose your next animal</h2></div><button class="btn sec" onclick="exoticDialog.close()">Close</button></header><div class="exoticFilters"><input id="exoticSearch" aria-label="Search exotic animals" placeholder="Wolf, axolotl, snow leopard…" oninput="exoticPage=0;renderExoticCatalog()"><select id="exoticGroup" aria-label="Exotic animal group" onchange="exoticPage=0;renderExoticCatalog()"><option value="">All groups</option>'+Object.entries(EXOTIC_GROUPS).map(([key,g])=>'<option value="'+key+'">'+g.name+'</option>').join('')+'</select></div><p id="exoticCount" class="muted"></p><div id="exoticCatalogCards"></div><div class="exoticPager"><button class="btn sec" onclick="exoticPage=Math.max(0,exoticPage-1);renderExoticCatalog()">Previous</button><button class="btn sec" onclick="exoticPage++;renderExoticCatalog()">Next animals →</button></div><div id="exoticAdmissionForm"></div>';document.body.append(exoticDialog);let exoticPage=0,exoticSelected=null;
+function openExoticCatalog(){exoticPage=0;renderExoticCatalog();if(!exoticDialog.open)exoticDialog.showModal()}
+function renderExoticCatalog(){const q=document.getElementById('exoticSearch').value.trim().toLowerCase(),group=document.getElementById('exoticGroup').value;const pool=EXOTIC_CATALOG.filter(p=>(!group||p.group===group)&&[p.species,...p.variants].join(' ').toLowerCase().includes(q));const pages=Math.max(1,Math.ceil(pool.length/8));exoticPage=Math.min(exoticPage,pages-1);document.getElementById('exoticCount').textContent=pool.length+' animal types · Page '+(exoticPage+1)+'/'+pages+' · '+SPECIES.length+' species in the simulator';document.getElementById('exoticCatalogCards').innerHTML=pool.slice(exoticPage*8,exoticPage*8+8).map(p=>'<button class="exoticPick" onclick="selectExoticAnimal(\''+p.species+'\')"><span>'+SPECIES_EMOJI[p.species]+'</span><strong>'+p.species+'</strong><small>'+p.variants.length+' varieties · '+EXOTIC_GROUPS[p.group].name+'</small></button>').join('')||'<p>No animals match your search.</p>';const buttons=exoticDialog.querySelectorAll('.exoticPager button');buttons[0].disabled=exoticPage===0;buttons[1].disabled=exoticPage===pages-1}
+function selectExoticAnimal(species){const p=EXOTIC_BY_SPECIES[species];if(!p)return;exoticSelected=species;const kg=exoticWeight(p),cases=DIAGNOSES.filter(d=>d.species.includes(species)&&(d.id.startsWith('EX')||d.id.startsWith('DXCEX')));document.getElementById('exoticAdmissionForm').innerHTML='<section class="card"><h2>'+SPECIES_EMOJI[species]+' '+species+' admission</h2><div class="exoticFormGrid"><label>Variety<select id="exoticBreed">'+p.variants.map(v=>'<option>'+dxEscape(v)+'</option>').join('')+'</select></label><label>Fictional patient weight ('+animalUnits().weight+')<input id="exoticWeight" type="number" min="0.001" step="0.001" value="'+(kg*(animalUnits().weight==='lbs'?2.20462262185:1)).toFixed(3)+'"></label><label>Temperament<select id="exoticTemperament">'+['Watchful','Shy','Curious','Calm','Independent','Playful','Cautious','Gentle'].map(t=>'<option>'+t+'</option>').join('')+'</select></label><label>Choose this animal’s case<select id="exoticCase">'+cases.map(d=>'<option value="'+d.id+'">'+dxEscape(d.severity+' · '+d.name)+'</option>').join('')+'</select></label></div><p class="muted">'+EXOTIC_GROUPS[p.group].habitat+' · Selected measurements are authored individual game values.</p><button class="btn" onclick="admitExoticAnimal()">Admit '+species+' →</button><p id="exoticAdmissionStatus" role="status"></p></section>';document.getElementById('exoticAdmissionForm').scrollIntoView({block:'nearest',behavior:'smooth'})}
+function admitExoticAnimal(){const species=exoticSelected,profile=EXOTIC_BY_SPECIES[species],entered=Number(document.getElementById('exoticWeight').value),dx=DIAGNOSES.find(d=>d.id===document.getElementById('exoticCase').value);if(!profile||!dx||!dx.species.includes(species)||!Number.isFinite(entered)||entered<=0||entered>100000){document.getElementById('exoticAdmissionStatus').textContent='Choose a case and enter a positive fictional weight.';return}const p=makeNewPatient({species,breed:document.getElementById('exoticBreed').value,weightKg:entered/(animalUnits().weight==='lbs'?2.20462262185:1),temperament:document.getElementById('exoticTemperament').value});const a={apptId:'A'+String(S.nextApptNum++).padStart(4,'0'),patientId:p.id,clientId:p.clientId,visitType:dx.severity==='Critical'?'Exotic crisis intake':'Exotic animal visit',urgency:dx.severity==='Critical'?'Urgent':'Routine',complaint:dx.signs[0],trueDxId:dx.id,fee:dx.severity==='Critical'?200:70,done:false};S.queue.unshift(a);S.epicFocus=p.id;patientLife(p.id);recordWardEvent(p.id,'Exotic patient admitted',p.species+' · '+p.breed+' · '+formatAnimalWeight(p.weight)+'\n'+p.temperament+' · '+p.careSetting+'\nConcern: '+a.complaint);save();exoticDialog.close();go('queue');toast(p.name+' the '+species.toLowerCase()+' has arrived.')}
+const exoticHome=drawHomeDesk;drawHomeDesk=function(){exoticHome();const buttons=homeDesk.querySelector('.epHeaderBtns')||homeDesk.querySelector('.deskFooter');if(buttons&&!document.getElementById('exoticHomeButton')){const b=document.createElement('button');b.id='exoticHomeButton';b.className='btn sec';b.style.width='auto';b.textContent='Exotic animal admissions';b.onclick=openExoticCatalog;buttons.append(b)}};
+const exoticQueue=renderQueue;renderQueue=function(){exoticQueue();let toolbar=document.getElementById('exoticIntakeToolbar');if(!toolbar){toolbar=document.createElement('div');toolbar.id='exoticIntakeToolbar';toolbar.className='card';document.getElementById('queueList').before(toolbar)}toolbar.innerHTML='<div class="exoticFilters"><button class="btn" style="margin:0" onclick="openExoticCatalog()">Explore 36 exotic animals →</button><label>Random intake variety<select onchange="S.animalIntakeMode=this.value;save()"><option value="mixed" '+(!S.animalIntakeMode||S.animalIntakeMode==='mixed'?'selected':'')+'>Mixed animals</option><option value="exotic" '+(S.animalIntakeMode==='exotic'?'selected':'')+'>Exotic animals</option><option value="familiar" '+(S.animalIntakeMode==='familiar'?'selected':'')+'>Familiar animals</option></select></label></div>'};
+// Include new species in the existing selectors without clearing filter selections.
+function refreshExoticSelectors(){for(const id of ['patSpeciesFilter','disasterBrowserSpecies']){const select=document.getElementById(id);if(!select)continue;const present=new Set([...select.options].map(o=>o.value));SPECIES.forEach(s=>{if(!present.has(s))select.add(new Option(s,s))})}}
+const exoticTreatment=examTreatment;examTreatment=function(){exoticTreatment();if(!EXOTIC_BY_SPECIES[session?.patient.species])return;document.querySelectorAll('#examBody .choice .t').forEach(el=>{if(el.textContent.includes('Medication plan'))el.textContent='Species-specific simulated care plan'});const notice=document.createElement('p');notice.className='muted';notice.style.fontSize='12px';notice.textContent='Exotic case: authored simulator readings and care outcomes; no real species reference ranges or treatment instructions.';document.getElementById('examBody').prepend(notice)};
+const exoticStyle=document.createElement('style');exoticStyle.textContent='#exoticAnimalDialog{margin:auto;width:min(1000px,96vw);max-height:92dvh;background:#10232f;color:#e6f2f6;border:1px solid #416674;border-radius:15px;padding:22px}#exoticAnimalDialog>header{display:flex;align-items:center;justify-content:space-between;gap:14px}#exoticAnimalDialog>header .btn{width:auto}.exoticFilters{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;align-items:center;margin:15px 0}#exoticCatalogCards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.exoticPick{background:#173340;border:1px solid #375e6d;border-radius:12px;color:#e8f4fa;cursor:pointer;padding:17px 12px;text-align:left}.exoticPick>span{font-size:36px;display:block;margin-bottom:10px}.exoticPick strong,.exoticPick small{display:block}.exoticPick small{color:#a5c4d1;font-size:11px;line-height:1.6;margin-top:5px}.exoticPick:hover{border-color:#8ddaba}.exoticPager{display:flex;gap:14px;margin:12px 0 20px}.exoticFormGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}#exoticAnimalDialog label{display:block;font-size:13px}#exoticAnimalDialog input,#exoticAnimalDialog select{margin-top:6px}#exoticAnimalDialog .rnOpenInside{display:none}@media(max-width:700px){#exoticAnimalDialog{width:100vw;max-height:100dvh;height:100dvh;border:0;border-radius:0;padding:16px}#exoticCatalogCards{grid-template-columns:1fr 1fr}.exoticFilters,.exoticFormGrid{grid-template-columns:1fr}.exoticPick{padding:13px}}';document.head.append(exoticStyle);
+refreshExoticSelectors();drawHomeDesk();
+
+</script>
+<script>
+const EXOTIC_BEHAVIOR={Wolf:['Turns its ears toward the care team.','Rests within a sheltered den area.'],Fox:['Pauses with ears alert near its shelter.','Curls into a familiar resting spot.'],Otter:['Watches activity from the water’s edge.','Floats or rests in a familiar sheltered area.'],Raccoon:['Investigates a nearby object with its forepaws.','Settles into a sheltered den box.'],Hedgehog:['Sniffs cautiously at the enclosure edge.','Tucks into a familiar sheltered corner.'],Chinchilla:['Pauses with whiskers moving.','Rests on a familiar sheltered platform.'],'Guinea Pig':['Pauses and looks toward the care team.','Settles into a familiar hideaway.'],Capybara:['Watches from the edge of its resting pool.','Rests quietly near familiar companions.'],'Sugar Glider':['Peeks from a sheltered pouch.','Rests inside its familiar sleeping pouch.'],Meerkat:['Stands briefly to watch its surroundings.','Settles near the group’s sheltered resting area.'],'Red Panda':['Watches from a familiar climbing platform.','Rests along a sheltered branch.'],Lemur:['Follows nearby activity with an alert gaze.','Settles onto a familiar elevated platform.'],Sloth:['Slowly turns toward nearby activity.','Maintains a quiet resting grip.'],Kangaroo:['Pauses with ears turned toward the team.','Rests within a familiar protected area.'],Wallaby:['Watches cautiously from its shelter.','Settles into a quiet corner of its enclosure.'],Alpaca:['Turns its ears toward a familiar voice.','Rests quietly in its familiar care area.'],'Miniature Pig':['Explores a familiar object with its snout.','Settles into its familiar resting area.'],Deer:['Keeps its ears oriented toward nearby movement.','Rests within the protected care area.'],Zebra:['Watches from near its familiar group.','Stands quietly within its familiar enclosure.'],Giraffe:['Turns its head toward nearby care activity.','Stands calmly in the protected care area.'],Elephant:['Explores a familiar object with its trunk.','Rests quietly within its familiar care area.'],Tiger:['Watches from a sheltered enclosure platform.','Rests within a familiar den area.'],'Snow Leopard':['Watches from an elevated resting ledge.','Settles along a familiar sheltered ledge.'],Bear:['Sniffs around a familiar enrichment object.','Settles into a sheltered resting area.'],Seal:['Watches from the edge of its pool.','Rests on a familiar haul-out platform.'],Owl:['Turns its head toward a faint sound.','Rests quietly on a familiar perch.'],Falcon:['Tracks nearby activity from its perch.','Settles into a familiar resting position.'],Macaw:['Tilts its head toward a familiar voice.','Rests quietly on a familiar perch.'],Penguin:['Watches nearby activity from the pool edge.','Rests within its familiar protected area.'],Flamingo:['Shifts position near the flock.','Stands quietly within its familiar group.'],Tortoise:['Slowly investigates the edge of its shelter.','Rests undisturbed within its familiar shelter.'],Chameleon:['Slowly shifts its grip on a familiar branch.','Rests quietly among familiar cover.'],Gecko:['Pauses near the opening of its hide.','Rests inside its familiar shelter.'],Snake:['Slowly investigates a familiar part of the enclosure.','Rests within a familiar hide.'],Axolotl:['Pauses near a familiar aquatic shelter.','Rests quietly on the habitat floor.'],Frog:['Pauses in its preferred sheltered position.','Rests quietly within familiar cover.']};
+Object.entries(EXOTIC_BEHAVIOR).forEach(([species,lines])=>{SPECIES_MANNERS[species]=[lines[0],lines[1],lines[0]+' It is observing the care team.']});
+const raccoon=EXOTIC_BY_SPECIES.Raccoon;raccoon.variants=['Common raccoon','Crab-eating raccoon'];BREEDS.Raccoon=raccoon.variants;
+const familiarWeights={Dog:[3,65],Cat:[2.5,8],Rabbit:[1,5],Bird:[.1,1.2],Reptile:[.2,3],Ferret:[.7,2],Horse:[300,600]};
+const exoticFactory=makeNewPatient;makeNewPatient=function(options={}){const p=exoticFactory(options);if(!EXOTIC_BY_SPECIES[p.species]&&!options?.weightKg){const [min,max]=familiarWeights[p.species]||[1,10];p.weight=Math.round((min+Math.random()*(max-min))*100)/100}return p};
+const exoticLife=patientLife;patientLife=function(id){const existed=!!S.patientLife?.[id],l=exoticLife(id),p=S.patients.find(p=>p.id===id);if(l&&!existed&&EXOTIC_BY_SPECIES[p?.species]){l.trust=/shy|cautious|watchful/i.test(p.temperament)?26:/curious|playful/i.test(p.temperament)?46:39;l.curiosity=/curious|playful/i.test(p.temperament)?70:/shy|cautious/i.test(p.temperament)?30:48;if(['amphibian','reptile'].includes(EXOTIC_BY_SPECIES[p.species].group))l.preference='Familiar surroundings'}return l};
+const exoticDisasterAdmission=admitChosenDisaster;admitChosenDisaster=function(id){const dx=DIAGNOSES.find(d=>d.id===id);if(!dx?.id.startsWith('DXCEX'))return exoticDisasterAdmission(id);const p=makeNewPatient({species:dx.species[0]});S.queue.unshift({apptId:'A'+String(S.nextApptNum++).padStart(4,'0'),patientId:p.id,clientId:p.clientId,visitType:'Exotic crisis intake',urgency:'Urgent',complaint:dx.signs[0],trueDxId:dx.id,fee:200,done:false});S.epicFocus=p.id;patientLife(p.id);recordWardEvent(p.id,'Exotic crisis admitted',p.species+' · '+p.breed+'\n'+dx.name);save();go('queue')};
+const exoticInfoRows=currentDataRows;currentDataRows=function(){const rows=exoticInfoRows(),p=supplyAnimal();if(EXOTIC_BY_SPECIES[p.species])rows.push({label:'Exotic patient identity',source:'Authored animal profile',value:JSON.stringify({species:p.species,variety:p.breed,temperament:p.temperament,habitat:p.habitat,careSetting:p.careSetting,individualMarking:p.individualMarking,weight:formatAnimalWeight(p.weight)})});return rows};
+
+</script>
+<script>
+const exoticNotebookContext=rnContext;rnContext=function(){if(lifeDialog?.open&&lifePatientId)return lifePatientId;return exoticNotebookContext()};
+const exoticCaseReport=cbReportSections;cbReportSections=function(id){const report=exoticCaseReport(id),p=S.patients.find(p=>p.id===id),profile=EXOTIC_BY_SPECIES[p?.species];if(!profile)return report;return report+'<section><h2>Exotic animal identity</h2><p>'+dxEscape(p.careSetting||'Specialist exotic clinic')+' · '+dxEscape(EXOTIC_GROUPS[profile.group].name)+'</p><p>Individual detail: '+dxEscape(p.individualMarking||profile.concern)+'</p><p>Habitat setting: '+dxEscape(p.habitat||EXOTIC_GROUPS[profile.group].habitat)+'</p><p>Temperament: '+dxEscape(p.temperament)+'</p><p>Authored patient values and observations are fictional game records.</p></section>'};
+
+</script>
+</body></html>

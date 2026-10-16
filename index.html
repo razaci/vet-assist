@@ -1087,7 +1087,7 @@ resolveAppointment=function(){roundsResolve();admitRecoveryCase();drawCaseDebrie
 const WARD_TASKS=[['settle','Rest & comfort'],['intake','Food & water observation'],['mobility','Movement & behavior'],['breathing','Breathing observation'],['habitat','Bedding & environment'],['concern','Original concern recheck']];
 function prepareWard(r){r.checks=r.checks||[];r.round=r.round||1;r.history=r.history||[];r.roundResults=r.roundResults||{};r.roundStartComfort=r.roundStartComfort??r.comfort;r.roundNotes=r.roundNotes||'';return r}
 function wardComplete(r){return ['settle','intake','mobility'].every(t=>r.checks.includes(t))}
-function drawRecoveryWard(){const active=S.recoveryWard.filter(r=>r.status!=='Discharged');wardBox.innerHTML='<h2 style="margin-top:20px">Recovery ward <span class="pill">'+active.length+' active</span></h2><p class="muted">Repeat care rounds as often as needed. Record what you observe, then begin the next round. All values are game measures.</p><div class="wardGrid">'+(active.length?active.map(r=>{prepareWard(r);const p=S.patients.find(p=>p.id===r.patientId);if(!p)return '';const dx=DIAGNOSES.find(d=>d.id===r.dxId),key=dxEscape(r.id);return `<article class="wardPatient"><strong>${SPECIES_EMOJI[p.species]} ${dxEscape(p.name)}</strong><p>${dxEscape(dx?.name||'Follow-up case')} · ${dxEscape(r.status)}</p><div class="wardGauge"><span>Comfort · round ${r.round}</span><strong>${r.comfort}/100</strong></div><div class="caseProgress"><span style="width:${r.comfort}%"></span></div><p>Core checks: ${r.checks.filter(t=>['settle','intake','mobility'].includes(t)).length}/3 · Optional checks: ${r.checks.filter(t=>!['settle','intake','mobility'].includes(t)).length}/3</p><label for="ward-response-${key}">Response to record on your next check</label><select id="ward-response-${key}" style="width:100%;padding:10px" onchange="setWardDraft('${key}','response',this.value)">${['Unchanged','Better','Worse'].map(v=>`<option ${r.nextResponse===v?'selected':''}>${v}</option>`).join('')}</select><label for="ward-note-${key}">What did you notice?</label><textarea id="ward-note-${key}" rows="2" maxlength="2000" style="width:100%;box-sizing:border-box" placeholder="Optional observation for your next check" oninput="setWardDraft('${key}','note',this.value)">${dxEscape(r.roundNotes)}</textarea><div>${WARD_TASKS.map(([id,label],i)=>`<button class="btn ${r.checks.includes(id)?'sec':''}" ${r.checks.includes(id)?'disabled':''} onclick="wardCare('${key}','${id}')">${r.checks.includes(id)?'✓ ':''}${label}${i>2?' · optional':''}${r.roundResults[id]?' — '+dxEscape(r.roundResults[id]):''}</button>`).join('')}</div><button class="btn" ${!wardComplete(r)?'disabled':''} onclick="nextWardRound('${key}')">Finish round & start next →</button><p class="muted">${wardComplete(r)?'Core round complete. Continue checks, start another round, or discharge if appropriate.':'Complete rest, intake, and movement checks to open the next round.'}</p><details><summary>Care history (${r.history.length} recorded checks)</summary>${r.history.slice(-12).reverse().map(e=>`<p><strong>Round ${e.round} · ${dxEscape(e.label)} · ${dxEscape(e.response)}</strong><br>${dxEscape(e.note||'No additional note')}<br><small>${dxEscape(e.at)} · Comfort ${e.before} → ${e.after}</small></p>`).join('')||'<p>No new checks recorded yet.</p>'}</details><button class="btn sec" onclick="openAnimalNotes('${p.id}')">Notes, observations & supplies</button><button class="btn sec" ${r.followupBooked?'disabled':''} onclick="bookWardFollowup('${key}')">${r.followupBooked?'✓ Follow-up booked':'Arrange follow-up visit'}</button><button class="btn" ${!wardComplete(r)||r.status==='Needs reassessment'?'disabled':''} onclick="dischargeWardCase('${key}')">Complete discharge</button>${r.status==='Needs reassessment'?`<p class="muted">A worsening observation needs reassessment. Another comfort check does not clear this flag.</p><button class="btn sec" ${!r.followupBooked||!wardComplete(r)?'disabled':''} onclick="dischargeWardCase('${key}',true)">Transfer to follow-up care</button>`:''}</article>`}).join(''):'<div class="card">Finish a patient visit to begin recovery rounds.</div>')+'</div><p class="muted">'+S.recoveryWard.filter(r=>r.status==='Discharged').length+' case(s) discharged · full care entries remain in each animal’s journal and exports.</p>'}
+function drawRecoveryWard(){const active=S.recoveryWard.filter(r=>r.status!=='Discharged');wardBox.innerHTML='<h2 style="margin-top:20px">Recovery ward <span class="pill">'+active.length+' active</span></h2><p class="muted">Repeat care rounds as often as needed. Record what you observe, then begin the next round. All values are game measures.</p><div class="wardGrid">'+(active.length?active.map(r=>{prepareWard(r);const p=S.patients.find(p=>p.id===r.patientId);if(!p)return '';const dx=DIAGNOSES.find(d=>d.id===r.dxId),key=dxEscape(r.id);return `<article class="wardPatient"><strong>${SPECIES_EMOJI[p.species]} ${dxEscape(p.name)}</strong><p>${dxEscape(dx?.name||'Follow-up case')} · ${dxEscape(r.status)}</p><div class="wardGauge"><span>Comfort · round ${r.round}</span><strong>${r.comfort}/100</strong></div><div class="caseProgress"><span style="width:${r.comfort}%"></span></div><p>Core checks: ${r.checks.filter(t=>['settle','intake','mobility'].includes(t)).length}/3 · Optional checks: ${r.checks.filter(t=>!['settle','intake','mobility'].includes(t)).length}/3</p><label for="ward-response-${key}">Response to record on your next check</label><select id="ward-response-${key}" style="width:100%;padding:10px" onchange="setWardDraft('${key}','response',this.value)">${['Unchanged','Better','Worse'].map(v=>`<option ${r.nextResponse===v?'selected':''}>${v}</option>`).join('')}</select><label for="ward-note-${key}">What did you notice?</label><textarea id="ward-note-${key}" rows="2" maxlength="2000" style="width:100%;box-sizing:border-box" placeholder="Optional observation for your next check" oninput="setWardDraft('${key}','note',this.value)">${dxEscape(r.roundNotes)}</textarea><div>${WARD_TASKS.map(([id,label],i)=>`<button class="btn ${r.checks.includes(id)?'sec':''}" ${r.checks.includes(id)?'disabled':''} onclick="wardCare('${key}','${id}')">${r.checks.includes(id)?'✓ ':''}${label}${i>2?' · optional':''}${r.roundResults[id]?' — '+dxEscape(r.roundResults[id]):''}</button>`).join('')}</div><button class="btn" ${!wardComplete(r)?'disabled':''} onclick="nextWardRound('${key}')">Finish round & start next →</button><p class="muted">${wardComplete(r)?'Core round complete. Continue checks, start another round, or discharge if appropriate.':'Complete rest, intake, and movement checks to open the next round.'}</p><details><summary>Care history (${r.history.length} recorded checks)</summary>${r.history.slice(-12).reverse().map(e=>`<p><strong>Round ${e.round} · ${dxEscape(e.label)} · ${dxEscape(e.response)}</strong><br>${dxEscape(e.note||'No additional note')}<br><small>${dxEscape(e.at)} · Comfort ${e.before} → ${e.after}</small></p>`).join('')||'<p>No new checks recorded yet.</p>'}</details><button class="btn sec" onclick="openAnimalNotes('${p.id}')">Notes, observations & supplies</button><button class="btn sec" ${r.followupBooked?'disabled':''} onclick="bookWardFollowup('${key}')">${r.followupBooked?'✓ Follow-up booked':'Arrange follow-up visit'}</button><button class="btn" ${!wardComplete(r)||r.status==='Needs reassessment'?'disabled':''} onclick="dischargeWardCase('${key}')">Send home</button>${r.status==='Needs reassessment'?`<p class="muted">A worsening observation needs reassessment. Another comfort check does not clear this flag.</p><button class="btn sec" ${!r.followupBooked||!wardComplete(r)?'disabled':''} onclick="dischargeWardCase('${key}',true)">Transfer to follow-up care</button>`:''}</article>`}).join(''):'<div class="card">Finish a patient visit to begin recovery rounds.</div>')+'</div><p class="muted">'+S.recoveryWard.filter(r=>r.status==='Discharged').length+' case(s) discharged · full care entries remain in each animal’s journal and exports.</p>'}
 function setWardDraft(id,field,value){const r=S.recoveryWard.find(r=>r.id===id);if(!r||r.status==='Discharged')return;prepareWard(r);if(field==='note')r.roundNotes=value.slice(0,2000);if(field==='response'&&['Better','Unchanged','Worse'].includes(value))r.nextResponse=value;save()}
 function wardCare(id,task){const r=S.recoveryWard.find(r=>r.id===id),def=WARD_TASKS.find(t=>t[0]===task);if(!r||r.status==='Discharged'||!def)return;prepareWard(r);if(r.checks.includes(task))return;const response=r.nextResponse||'Unchanged',before=r.comfort;const change=response==='Worse'?-7:response==='Better'?5:task==='settle'||task==='habitat'?2:0;r.comfort=Math.max(0,Math.min(100,before+change));r.checks.push(task);r.roundResults[task]=response;r.readiness=Math.round(r.checks.filter(t=>['settle','intake','mobility'].includes(t)).length/3*100);if(response==='Worse')r.status='Needs reassessment';const entry={round:r.round,task,label:def[1],response,note:r.roundNotes,at:new Date().toLocaleString(),before,after:r.comfort};r.history.push(entry);r.history=r.history.slice(-60);recordWardEvent(r.patientId,'Recovery round '+r.round+' · '+def[1],response+' · '+(r.roundNotes||'No additional observation.')+'\nGame comfort: '+before+' → '+r.comfort+'/100');r.roundNotes='';checkpointCase()}
 function nextWardRound(id){const r=S.recoveryWard.find(r=>r.id===id);if(!r||r.status==='Discharged')return;prepareWard(r);if(!wardComplete(r))return;recordWardEvent(r.patientId,'Recovery round '+r.round+' completed',r.checks.length+' checks recorded. Comfort '+r.roundStartComfort+' → '+r.comfort+'/100. Starting another observation round.');r.round++;r.checks=[];r.roundResults={};r.readiness=0;r.roundStartComfort=r.comfort;r.nextResponse='Unchanged';checkpointCase();toast('Care round '+r.round+' ready. All checks are available again.')}
@@ -1121,7 +1121,7 @@ function wardReady(r){ensureWardRounds(r);return r.completedRounds>=1&&r.roundCh
 const dischargeBeforeRounds=dischargeWardCase;
 dischargeWardCase=function(id,transfer=false){const r=S.recoveryWard.find(x=>x.id===id);if(!r||r.status==='Discharged')return;if(!wardReady(r)){toast('Finish one round, advance, then complete the next three checks before discharge.');return}dischargeBeforeRounds(id,transfer)};
 function wardMetric(label,value){return '<div class="wardGauge"><span>'+label+'</span><strong>'+value+'/100</strong></div><div class="caseProgress"><span style="width:'+value+'%"></span></div>'}
-drawRecoveryWard=function(){S.recoveryWard.forEach(ensureWardRounds);const active=S.recoveryWard.filter(r=>r.status!=='Discharged');wardBox.innerHTML='<h2 style="margin-top:20px">Recovery ward <span class="pill">'+active.length+' active</span></h2><p class="muted">Repeat care and observations as often as needed. Each round advances 30 simulated minutes. No real-time waiting.</p><div class="wardGrid">'+(active.length?active.map(r=>{const p=S.patients.find(p=>p.id===r.patientId);if(!p)return '';const last=r.recoveryLog.at(-1),ready=wardReady(r);return '<article class="wardPatient"><strong>'+SPECIES_EMOJI[p.species]+' '+dxEscape(p.name)+'</strong><p>'+dxEscape(r.status)+' · Round '+r.round+' · +'+r.roundMinutes+' game min</p>'+wardMetric('Game comfort',r.comfort)+wardMetric('Game stress · lower is calmer',r.stress)+'<p><strong>This round: '+r.roundChecks.length+'/3 checks</strong> · '+r.completedRounds+' round(s) completed</p><div class="investigateGrid">'+Object.entries(WARD_ACTIONS).map(([id,a])=>'<button class="btn '+(r.roundChecks.includes(id)?'sec':'')+'" onclick="wardCare(\''+r.id+'\',\''+id+'\')">'+(r.roundChecks.includes(id)?'✓ ':'')+a.name+(r.actionCounts[id]?' · '+r.actionCounts[id]:'')+'</button>').join('')+'</div><p class="muted" style="font-size:12px">Actions stay available. Repeating one action gives diminishing stat changes until the next round; every use is documented.</p><button class="btn" '+(r.roundChecks.length<3?'disabled':'')+' onclick="nextWardRound(\''+r.id+'\')">Next round · advance 30 min →</button><details><summary>Add an observation</summary><label>Change noticed<select style="width:100%;padding:10px" onchange="wardDraft(\''+r.id+'\',\'progress\',this.value)">'+['Unchanged','Improving','Concerning change'].map(v=>'<option '+(r.observationDraft.progress===v?'selected':'')+'>'+v+'</option>').join('')+'</select></label><textarea class="caseJournalEditor" style="min-height:85px" maxlength="3000" aria-label="Recovery observation for '+dxEscape(p.name)+'" placeholder="What happened? What did you notice?" oninput="wardDraft(\''+r.id+'\',\'note\',this.value)">'+dxEscape(r.observationDraft.note)+'</textarea><button class="btn" onclick="recordWardObservation(\''+r.id+'\')">Save observation to timeline & journal</button></details>'+(last?'<div class="card" role="status"><strong>Latest · '+dxEscape(last.title)+'</strong><p>'+dxEscape(last.text)+'</p></div>':'')+'<details><summary>Recovery history · '+r.recoveryLog.length+' entries</summary><div style="max-height:260px;overflow:auto">'+r.recoveryLog.slice(-20).reverse().map(e=>'<div class="card"><strong>Round '+e.round+' · '+dxEscape(e.title)+'</strong><p>'+dxEscape(e.text)+'</p><small>Comfort '+e.comfort+' · Stress '+e.stress+'</small></div>').join('')+'</div></details><button class="btn sec" onclick="openAnimalNotes(\''+p.id+'\')">Full notes, observations & Amazon supplies</button><button class="btn sec" '+(r.followupBooked?'disabled':'')+' onclick="bookWardFollowup(\''+r.id+'\')">'+(r.followupBooked?'✓ Follow-up booked':'Arrange follow-up visit')+'</button><button class="btn" '+(!ready||r.status==='Needs reassessment'?'disabled':'')+' onclick="dischargeWardCase(\''+r.id+'\')">Complete discharge</button>'+(r.status==='Needs reassessment'?'<p class="muted">Concerning change recorded: arrange follow-up for reassessment.</p><button class="btn sec" '+(!ready||!r.followupBooked?'disabled':'')+' onclick="dischargeWardCase(\''+r.id+'\',true)">Transfer to follow-up care</button>':'')+(!ready?'<p class="muted">Discharge unlocks after two complete rounds. Continue rounds as long as you like.</p>':'')+'</article>'}).join(''):'<div class="card">Complete a patient visit to begin ongoing recovery.</div>')+'</div><p class="muted">'+S.recoveryWard.filter(r=>r.status==='Discharged').length+' discharged · Recovery is a fictional game system.</p>'};
+drawRecoveryWard=function(){S.recoveryWard.forEach(ensureWardRounds);const active=S.recoveryWard.filter(r=>r.status!=='Discharged');wardBox.innerHTML='<h2 style="margin-top:20px">Recovery ward <span class="pill">'+active.length+' active</span></h2><p class="muted">Repeat care and observations as often as needed. Each round advances 30 simulated minutes. No real-time waiting.</p><div class="wardGrid">'+(active.length?active.map(r=>{const p=S.patients.find(p=>p.id===r.patientId);if(!p)return '';const last=r.recoveryLog.at(-1),ready=wardReady(r);return '<article class="wardPatient"><strong>'+SPECIES_EMOJI[p.species]+' '+dxEscape(p.name)+'</strong><p>'+dxEscape(r.status)+' · Round '+r.round+' · +'+r.roundMinutes+' game min</p>'+wardMetric('Game comfort',r.comfort)+wardMetric('Game stress · lower is calmer',r.stress)+'<p><strong>This round: '+r.roundChecks.length+'/3 checks</strong> · '+r.completedRounds+' round(s) completed</p><div class="investigateGrid">'+Object.entries(WARD_ACTIONS).map(([id,a])=>'<button class="btn '+(r.roundChecks.includes(id)?'sec':'')+'" onclick="wardCare(\''+r.id+'\',\''+id+'\')">'+(r.roundChecks.includes(id)?'✓ ':'')+a.name+(r.actionCounts[id]?' · '+r.actionCounts[id]:'')+'</button>').join('')+'</div><p class="muted" style="font-size:12px">Actions stay available. Repeating one action gives diminishing stat changes until the next round; every use is documented.</p><button class="btn" '+(r.roundChecks.length<3?'disabled':'')+' onclick="nextWardRound(\''+r.id+'\')">Next round · advance 30 min →</button><details><summary>Add an observation</summary><label>Change noticed<select style="width:100%;padding:10px" onchange="wardDraft(\''+r.id+'\',\'progress\',this.value)">'+['Unchanged','Improving','Concerning change'].map(v=>'<option '+(r.observationDraft.progress===v?'selected':'')+'>'+v+'</option>').join('')+'</select></label><textarea class="caseJournalEditor" style="min-height:85px" maxlength="3000" aria-label="Recovery observation for '+dxEscape(p.name)+'" placeholder="What happened? What did you notice?" oninput="wardDraft(\''+r.id+'\',\'note\',this.value)">'+dxEscape(r.observationDraft.note)+'</textarea><button class="btn" onclick="recordWardObservation(\''+r.id+'\')">Save observation to timeline & journal</button></details>'+(last?'<div class="card" role="status"><strong>Latest · '+dxEscape(last.title)+'</strong><p>'+dxEscape(last.text)+'</p></div>':'')+'<details><summary>Recovery history · '+r.recoveryLog.length+' entries</summary><div style="max-height:260px;overflow:auto">'+r.recoveryLog.slice(-20).reverse().map(e=>'<div class="card"><strong>Round '+e.round+' · '+dxEscape(e.title)+'</strong><p>'+dxEscape(e.text)+'</p><small>Comfort '+e.comfort+' · Stress '+e.stress+'</small></div>').join('')+'</div></details><button class="btn sec" onclick="openAnimalNotes(\''+p.id+'\')">Full notes, observations & Amazon supplies</button><button class="btn sec" '+(r.followupBooked?'disabled':'')+' onclick="bookWardFollowup(\''+r.id+'\')">'+(r.followupBooked?'✓ Follow-up booked':'Arrange follow-up visit')+'</button><button class="btn" '+(!ready||r.status==='Needs reassessment'?'disabled':'')+' onclick="dischargeWardCase(\''+r.id+'\')">Send home</button>'+(r.status==='Needs reassessment'?'<p class="muted">Concerning change recorded: arrange follow-up for reassessment.</p><button class="btn sec" '+(!ready||!r.followupBooked?'disabled':'')+' onclick="dischargeWardCase(\''+r.id+'\',true)">Transfer to follow-up care</button>':'')+(!ready?'<p class="muted">Two rounds complete the routine checklist. Send home can also record any unfinished checks.</p>':'')+'</article>'}).join(''):'<div class="card">Complete a patient visit to begin ongoing recovery.</div>')+'</div><p class="muted">'+S.recoveryWard.filter(r=>r.status==='Discharged').length+' sent home / completed · Recovery is a fictional game system.</p>'};
 drawRecoveryWard();
 
 </script>
@@ -1410,7 +1410,7 @@ function epTasks(id){S.caseReminders=S.caseReminders||{};return S.caseReminders[
 function epAddTask(id){const input=document.getElementById('epTaskInput'),text=input.value.trim().slice(0,300);if(!text)return;const rows=epTasks(id);if(rows.length>=40){toast('Keep up to 40 reminders per animal. Remove a finished reminder first.');return}rows.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),text,done:false});save()}
 function epTaskAction(id,key,remove){const tasks=epTasks(id),i=tasks.findIndex(t=>t.id===key);if(i<0)return;if(remove)tasks.splice(i,1);else tasks[i].done=!tasks[i].done;save()}
 const epOriginalHome=drawHomeDesk;
-drawHomeDesk=function(){const id=epFocusId(),p=S.patients.find(p=>p.id===id);if(!p){epOriginalHome();return}const {a,r}=epStageFor(id),next=epNextFor(id),b=lifeBehavior(id),tasks=epTasks(id),waiting=S.queue.filter(a=>!a.done).length,recovery=S.recoveryWard.filter(r=>r.status!=='Discharged').length,flags=S.recoveryWard.filter(r=>r.status==='Needs reassessment').length;homeDesk.innerHTML=`<header class="epHero"><div class="epTag">VET ASSIST · Living casebook · Day ${S.day}</div><h1>Every patient has a story.<br>Every observation matters.</h1><p>Follow the evidence, choose the next step, and keep the whole journey together.</p><div class="deskPills"><span>${waiting} waiting</span><span>${recovery} in recovery</span><span>${flags} need reassessment</span><span>${DIAGNOSES.length} authored cases</span></div><div class="epHeaderBtns"><button class="btn" style="width:auto" onclick="go('queue')">Admit / examine →</button><button class="btn sec" style="width:auto" onclick="go('ward')">Recovery rounds</button></div></header><div class="epLayout"><section class="epPanel"><div class="epTag">Patient in focus</div><div class="epIdentity"><div class="epPortrait">${SPECIES_EMOJI[p.species]}</div><div><h2>${dxEscape(p.name)}</h2><div>${dxEscape(p.species+' · '+p.breed)}</div><small>${formatAnimalWeight(p.weight)} · ${dxEscape(b.label)}</small></div></div><div class="epStage">${['Intake','Investigate','Decide','Recover','Discharge'].map((s,i)=>'<span class="'+(i===epStageFor(id).stage?'current':'')+'">'+(i+1)+' '+s+'</span>').join('')}</div><p class="epEmpty">${dxEscape(b.text)}</p><div class="epNext"><strong>${dxEscape(next[0])}</strong><p>${dxEscape(next[1])}</p><button class="btn" onclick="epContinue('${id}')">${next[2]} →</button></div><div class="epToolbar"><button class="btn sec" onclick="epToggleNotes(true,'${id}')">Write / capture notes</button><button class="btn sec" onclick="openPatientLife('${id}')">Patient story</button><button class="btn sec" onclick="epDossier('${id}')">Download case report</button></div><div class="epReminders"><h2>My next checks</h2><p class="epEmpty">Your own reminders; checking one does not perform a care action.</p>${tasks.map(t=>`<label class="epTask ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="epTaskAction('${id}','${t.id}',false)"><span>${dxEscape(t.text)}</span><button aria-label="Remove reminder" onclick="event.preventDefault();epTaskAction('${id}','${t.id}',true)">×</button></label>`).join('')}<form class="epTaskForm" onsubmit="event.preventDefault();epAddTask('${id}')"><input id="epTaskInput" maxlength="300" aria-label="New care reminder" placeholder="What do you want to check next?"><button class="btn sec">Add</button></form></div></section><section class="epPanel"><h2>Choose a patient</h2><div class="epPatientList">${S.patients.map(x=>{const n=epNextFor(x.id);return `<button class="epPick ${x.id===id?'selected':''}" onclick="epSelect('${x.id}')"><strong>${SPECIES_EMOJI[x.species]} ${dxEscape(x.name)}</strong><small>${dxEscape(n[0])}</small></button>`}).join('')}</div><h2 style="margin-top:22px">Recorded care timeline</h2><div class="epTimeline">${epTimeline(id)}</div><button class="btn sec" onclick="openAnimalNotes('${id}');showCaseWorkspace('journal')">Read complete journal</button></section></div><p class="deskDisclaimer">Fictional animal-care simulator · severe authored cases and game measures.</p>`};
+drawHomeDesk=function(){const id=epFocusId(),p=S.patients.find(p=>p.id===id);if(!p){epOriginalHome();return}const {a,r}=epStageFor(id),next=epNextFor(id),b=lifeBehavior(id),tasks=epTasks(id),waiting=S.queue.filter(a=>!a.done).length,recovery=S.recoveryWard.filter(r=>r.status!=='Discharged').length,flags=S.recoveryWard.filter(r=>r.status==='Needs reassessment').length;homeDesk.innerHTML=`<header class="epHero"><div class="epTag">VET ASSIST · Living casebook · Day ${S.day}</div><h1>Every patient has a story.<br>Every observation matters.</h1><p>Follow the evidence, choose the next step, and keep the whole journey together.</p><div class="deskPills"><span>${waiting} waiting</span><span>${recovery} in recovery</span><span>${flags} need reassessment</span><span>${DIAGNOSES.length} authored cases</span></div><div class="epHeaderBtns"><button class="btn" style="width:auto" onclick="go('queue')">Admit / examine →</button><button class="btn sec" style="width:auto" onclick="go('ward')">Recovery rounds</button></div></header><div class="epLayout"><section class="epPanel"><div class="epTag">Patient in focus</div><div class="epIdentity"><div class="epPortrait">${SPECIES_EMOJI[p.species]}</div><div><h2>${dxEscape(p.name)}</h2><div>${dxEscape(p.species+' · '+p.breed)}</div><small>${formatAnimalWeight(p.weight)} · ${dxEscape(b.label)}</small></div></div><div class="epStage">${['Intake','Investigate','Decide','Recover','Send home'].map((s,i)=>'<span class="'+(i===epStageFor(id).stage?'current':'')+'">'+(i+1)+' '+s+'</span>').join('')}</div><p class="epEmpty">${dxEscape(b.text)}</p><div class="epNext"><strong>${dxEscape(next[0])}</strong><p>${dxEscape(next[1])}</p><button class="btn" onclick="epContinue('${id}')">${next[2]} →</button></div><div class="epToolbar"><button class="btn sec" onclick="epToggleNotes(true,'${id}')">Write / capture notes</button><button class="btn sec" onclick="openPatientLife('${id}')">Patient story</button><button class="btn sec" onclick="epDossier('${id}')">Download case report</button></div><div class="epReminders"><h2>My next checks</h2><p class="epEmpty">Your own reminders; checking one does not perform a care action.</p>${tasks.map(t=>`<label class="epTask ${t.done?'done':''}"><input type="checkbox" ${t.done?'checked':''} onchange="epTaskAction('${id}','${t.id}',false)"><span>${dxEscape(t.text)}</span><button aria-label="Remove reminder" onclick="event.preventDefault();epTaskAction('${id}','${t.id}',true)">×</button></label>`).join('')}<form class="epTaskForm" onsubmit="event.preventDefault();epAddTask('${id}')"><input id="epTaskInput" maxlength="300" aria-label="New care reminder" placeholder="What do you want to check next?"><button class="btn sec">Add</button></form></div></section><section class="epPanel"><h2>Choose a patient</h2><div class="epPatientList">${S.patients.map(x=>{const n=epNextFor(x.id);return `<button class="epPick ${x.id===id?'selected':''}" onclick="epSelect('${x.id}')"><strong>${SPECIES_EMOJI[x.species]} ${dxEscape(x.name)}</strong><small>${dxEscape(n[0])}</small></button>`}).join('')}</div><h2 style="margin-top:22px">Recorded care timeline</h2><div class="epTimeline">${epTimeline(id)}</div><button class="btn sec" onclick="openAnimalNotes('${id}');showCaseWorkspace('journal')">Read complete journal</button></section></div><p class="deskDisclaimer">Fictional animal-care simulator · severe authored cases and game measures.</p>`};
 function epDraftKey(id){return 'vetAssist.bedsideDraft.v1.'+id}
 function epStatus(text){document.getElementById('epStatus').textContent=text}
 function epToggleNotes(force,id){const open=typeof force==='boolean'?force:epBedside.hidden;epBedside.hidden=!open;document.body.classList.toggle('epNotesOpen',open);if(open){const target=id||session?.patient.id||epFocusId()||'clinic';document.getElementById('epTarget').innerHTML='<option value="clinic">Clinic / general notes</option>'+S.patients.map(p=>'<option value="'+dxEscape(p.id)+'">'+dxEscape(p.name+' · '+p.species)+'</option>').join('');epSwitchNote(target)}}
@@ -2107,6 +2107,281 @@ const exoticInfoRows=currentDataRows;currentDataRows=function(){const rows=exoti
 <script>
 const exoticNotebookContext=rnContext;rnContext=function(){if(lifeDialog?.open&&lifePatientId)return lifePatientId;return exoticNotebookContext()};
 const exoticCaseReport=cbReportSections;cbReportSections=function(id){const report=exoticCaseReport(id),p=S.patients.find(p=>p.id===id),profile=EXOTIC_BY_SPECIES[p?.species];if(!profile)return report;return report+'<section><h2>Exotic animal identity</h2><p>'+dxEscape(p.careSetting||'Specialist exotic clinic')+' · '+dxEscape(EXOTIC_GROUPS[profile.group].name)+'</p><p>Individual detail: '+dxEscape(p.individualMarking||profile.concern)+'</p><p>Habitat setting: '+dxEscape(p.habitat||EXOTIC_GROUPS[profile.group].habitat)+'</p><p>Temperament: '+dxEscape(p.temperament)+'</p><p>Authored patient values and observations are fictional game records.</p></section>'};
+
+</script>
+<script>
+/* Work-based fictional clinic economy. Cash is unrestricted; awards are saved per visit. */
+function careAccount(a,patient){
+  S.caseBilling=S.caseBilling||{};
+  return S.caseBilling[a.apptId]||(S.caseBilling[a.apptId]={patientId:patient.id,name:patient.name,items:[],paid:{},total:0});
+}
+function carePay(a,patient,key,label,amount){
+  const b=careAccount(a,patient);if(b.paid[key]||!Number.isFinite(amount)||amount<=0)return 0;
+  amount=Math.round(amount);b.paid[key]=true;b.total+=amount;b.items.push({key,label,amount,day:S.day});
+  S.cash+=amount;S.financeLog.unshift({day:S.day,type:'Income',category:'Case services',amount,note:patient.name+' · '+label});
+  return amount;
+}
+function careCrisisMilestones(){
+  if(!session||session.appt.done)return;
+  (session.crisisProblems||[]).forEach((p,i)=>{
+    if(p.checked)carePay(session.appt,session.patient,'assess-'+i,'Crisis assessment: '+p.title,25);
+    if(p.checked&&p.danger<=25)carePay(session.appt,session.patient,'stabilize-'+i,'Stabilization milestone: '+p.title,100);
+  });
+}
+const economyExam=examineCaseArea;
+examineCaseArea=function(id,quiet=false){
+  const before=(session?.examinedAreas||[]).length,result=economyExam(id,quiet);
+  if(session&&!session.appt.done&&session.examinedAreas.length>before){carePay(session.appt,session.patient,'exam-'+id,'Examination: '+(EXAM_AREAS.find(x=>x[0]===id)?.[1]||id),25);checkpointCase()}
+  return result;
+};
+const economyTest=runCaseTest;
+runCaseTest=function(id){
+  const before=session?.testResults?.length||0;const result=economyTest(id);
+  if(session&&(session.testResults||[]).length>before){
+    const t=session.testResults.at(-1);
+    S.financeLog.unshift({day:S.day,type:'Expense',category:'Diagnostics',amount:t.cost,note:session.patient.name+' · targeted test'});
+    // Only supported or shortlisted tests qualify, at most three per appointment.
+    const b=careAccount(session.appt,session.patient);
+    if((t.match||(session.diagnosisShortlist||[]).some(d=>d.id===id))&&b.items.filter(x=>x.key.startsWith('test-')).length<3)
+      carePay(session.appt,session.patient,'test-'+id,'Diagnostic service (includes test-cost reimbursement)',t.cost+60);
+    checkpointCase();
+  }return result;
+};
+for(const name of ['checkCrisisProblem','simulateCrisisResponse','nightmareSurge']){
+  const original=window[name];window[name]=function(...args){const result=original(...args);careCrisisMilestones();checkpointCase();return result};
+}
+const economyResolve=resolveAppointment;
+resolveAppointment=function(){
+  if(!session||session.appt.done)return;
+  const a=session.appt,p=session.patient;
+  careCrisisMilestones();economyResolve();
+  if(!a.done)return;
+  const record=S.medicalLog.find(r=>r.patientId===p.id&&r.id===S.medicalLog[0]?.id);
+  if(record){
+    const b=careAccount(a,p);
+    if(!b.paid.base){b.paid.base=true;b.items.push({key:'base',label:'Original visit and treatment payment',amount:record.revenue,day:S.day});b.total+=record.revenue}
+    const multiplier=session.trueDx.severity==='Critical'?3:1.8;
+    const extra=carePay(a,p,'treatment-uplift','Extended treatment service',record.revenue*(multiplier-1));
+    if(session.diagnosisCorrect)carePay(a,p,'diagnosis','Confirmed case completion',150);
+    if(session.diagnosisCorrect&&!/complication/i.test(p.lastOutcome))carePay(a,p,'quality','Successful care milestone',200);
+    record.serviceIncome=b.total;record.extendedTreatmentIncome=extra;
+    const card=document.createElement('div');card.className='card';card.innerHTML='<strong>Case earnings so far: '+fmt(b.total)+'</strong><p>Includes examination, eligible diagnostics, crisis milestones, and treatment. Recovery payments can add more.</p><button class="btn sec" onclick="openCareEarnings()">View earnings breakdown</button>';
+    document.getElementById('resultExtra').append(card);
+  }checkpointCase();
+};
+const economyWard=wardCare;
+wardCare=function(id,task){
+  const r=S.recoveryWard.find(x=>x.id===id);if(!r)return economyWard(id,task);
+  const before=(r.roundChecks||[]).length,result=economyWard(id,task);
+  if((r.roundChecks||[]).length>before&&r.roundChecks.length===3){
+    const p=S.patients.find(p=>p.id===r.patientId),b=careAccount({apptId:r.apptId},p);
+    const today=b.items.filter(x=>x.day===S.day&&x.key.startsWith('round-')).length;
+    if(today<3)carePay({apptId:r.apptId},p,'round-'+r.round,'Completed recovery round '+r.round,175);
+    checkpointCase();
+  }return result;
+};
+const economyDischarge=dischargeWardCase;
+dischargeWardCase=function(id,transfer=false){
+  const r=S.recoveryWard.find(x=>x.id===id),before=r?.status,result=economyDischarge(id,transfer);
+  if(r&&before!=='Discharged'&&r.status==='Discharged'){
+    carePay({apptId:r.apptId},S.patients.find(p=>p.id===r.patientId),'discharge',transfer?'Documented transfer':'Completed discharge',150);checkpointCase();
+  }return result;
+};
+function openCareEarnings(){
+  let d=document.getElementById('careEarnings');if(!d){d=document.createElement('dialog');d.id='careEarnings';document.body.append(d)}
+  const bills=Object.entries(S.caseBilling||{}).reverse(),total=bills.reduce((n,[,b])=>n+b.total,0);
+  d.innerHTML='<header><h2>Clinic earnings</h2><button class="btn sec" onclick="document.getElementById(\'careEarnings\').close()">Close</button></header><div class="card"><strong>Available cash: '+fmt(S.cash)+'</strong><p>Recorded case earnings since this update: '+fmt(total)+'. Starting funds, grants, bonuses, and expenses are separate. There is no $50,000 ceiling.</p></div><div class="card"><strong>Payment schedule · fictional game economy</strong><p>Exam area $25 once · eligible diagnostics cost + $60 (up to 3) · crisis assessment $25 per problem · first stabilization below 26 danger $100 per problem.</p><p>Treatment pays 1.8× the original amount, or 3× for critical cases. Confirmed diagnosis adds $150; successful matched care adds $200. Completed recovery rounds pay $175 (up to 3 per case per simulator day); discharge or transfer pays $150 once.</p><p>Repeated clicks, notes, elapsed time, and triggering deterioration do not generate extra payments. Expenses still reduce your cash.</p></div>'+bills.map(([id,b])=>'<details class="card"><summary>'+dxEscape(b.name)+' · '+dxEscape(id)+' · '+fmt(b.total)+'</summary>'+b.items.map(x=>'<p>Day '+x.day+' · '+dxEscape(x.label)+' <strong>+'+fmt(x.amount)+'</strong></p>').join('')+'</details>').join('');
+  d.showModal();
+}
+const cashMeter=document.getElementById('mCash')?.closest('.meter');
+if(cashMeter){cashMeter.setAttribute('role','button');cashMeter.tabIndex=0;cashMeter.title='View case earnings and payment schedule';cashMeter.style.cursor='pointer';cashMeter.onclick=openCareEarnings;cashMeter.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openCareEarnings()}};cashMeter.querySelector('.l').textContent='Cash · earnings ↗'}
+
+</script>
+<script>
+/* Discharge eligibility follows completed work, even after starting another round. */
+function dischargeProgress(r){
+  r.checks=Array.isArray(r.checks)?r.checks:[];
+  ensureWardRounds(r);
+  r.roundChecks=Array.isArray(r.roundChecks)?r.roundChecks:[];
+  const tasks=['settle','intake','mobility'];
+  const missing=tasks.filter(t=>!r.roundChecks.includes(t));
+  const finished=Math.max(0,Number(r.completedRounds)||0);
+  const total=finished+(missing.length===0?1:0);
+  return {ready:total>=2,total,missing,finished};
+}
+wardReady=function(r){return dischargeProgress(r).ready};
+function dischargeRequirement(r){
+  const p=dischargeProgress(r);
+  if(!p.ready){
+    const labels={settle:'rest & comfort',intake:'food / water',mobility:'movement'};
+    return 'Recovery rounds: '+Math.min(2,p.total)+'/2 complete. '+(p.missing.length?'This round still needs '+p.missing.map(t=>labels[t]).join(', ')+'.':'Select Next round, then record rest, food / water and movement again.');
+  }
+  return r.status==='Needs reassessment'?'Recovery rounds complete. This case has a reassessment flag: use Arrange follow-up & transfer to continue care.':'Recovery rounds complete. Ready to discharge; starting another round will not remove this eligibility.';
+}
+const fixedDischargePrevious=dischargeWardCase;
+dischargeWardCase=function(id,transfer=false){
+  const r=S.recoveryWard.find(x=>x.id===id);
+  if(!r||r.status==='Discharged')return;
+  if(!wardReady(r)){toast(dischargeRequirement(r));return}
+  if(r.status==='Needs reassessment'&&!transfer){toast('Use Arrange follow-up & transfer for this flagged case.');return}
+  if(transfer&&!r.followupBooked){bookWardFollowup(id);if(!r.followupBooked){toast('Follow-up could not be arranged. The case remains in recovery.');return}}
+  // Earlier handlers still inspect the legacy cumulative checklist.
+  for(const t of ['settle','intake','mobility'])if(!r.checks.includes(t))r.checks.push(t);
+  return fixedDischargePrevious(id,transfer);
+};
+const fixedFollowupPrevious=bookWardFollowup;
+bookWardFollowup=function(id){
+  const r=S.recoveryWard.find(x=>x.id===id);if(!r||r.status==='Discharged'||r.followupBooked)return;
+  if(!DIAGNOSES.some(d=>d.id===r.dxId)||!S.patients.some(p=>p.id===r.patientId)){toast('The linked case record is missing. Follow-up could not be arranged.');return}
+  return fixedFollowupPrevious(id);
+};
+const fixedWardPrevious=drawRecoveryWard;
+drawRecoveryWard=function(){
+  fixedWardPrevious();
+  const active=S.recoveryWard.filter(r=>r.status!=='Discharged'&&S.patients.some(p=>p.id===r.patientId));
+  document.querySelectorAll('#recoveryWard .wardPatient').forEach((card,i)=>{
+    const r=active[i];if(!r)return;
+    const panel=document.createElement('div');panel.className='card';panel.setAttribute('role','status');panel.textContent=dischargeRequirement(r);card.append(panel);
+    for(const b of card.querySelectorAll('button')){
+      const action=b.getAttribute('onclick')||'';
+      if(!action.startsWith('dischargeWardCase('))continue;
+      const transfer=action.includes(',true');
+      b.disabled=!wardReady(r)||(!transfer&&r.status==='Needs reassessment');
+      if(transfer)b.textContent=r.followupBooked?'Transfer to follow-up care':'Arrange follow-up & transfer';
+    }
+  });
+};
+
+</script>
+<script>
+/* Authored observation scenes for the simulator; not real clinical measurements. */
+const RECOVERY_CUES={
+Dog:['chest movement while resting','walking across the bedding','sniffing the food bowl','turning toward a familiar voice','coat and paw appearance','choosing a sheltered bed'],
+Cat:['flank movement while curled up','stepping out of the sleeping area','approaching the food dish','ear and whisker posture','grooming along the coat','using the raised resting shelf'],
+Rabbit:['nose and flank movement','hopping between resting spots','investigating the hay tray','ear position when the room changes','fur around the face and feet','choosing the covered hide'],
+Bird:['body movement on the perch','balancing and shifting feet','investigating the feeding cup','calling toward familiar activity','feather arrangement','choosing a protected perch'],
+Ferret:['chest movement in the sleep pouch','moving through the short tunnel','sniffing the feeding station','peeking out toward the keeper','coat around the face and tail','curling into the sleeping hammock'],
+Horse:['rib movement while standing','placing weight through each step','approaching the forage area','ear position toward the handler','coat and lower-leg appearance','standing in the quiet stall'],
+Reptile:['body movement at rest','crossing the enclosure floor','orienting toward the feeding station','head position near the keeper','skin and shedding appearance','selecting a familiar shelter'],
+Wolf:['rib movement beside the den','placing each paw on the den path','scenting the feeding platform','ear and tail position toward the keeper','guard-hair and paw appearance','returning to the secluded den'],
+Fox:['flank movement inside the hide','light steps between the rocks','sniffing the food hide','ear swivels toward distant sounds','tail coat and muzzle appearance','choosing the shaded den entrance'],
+Otter:['body movement on the resting ledge','turning and paddling in the pool','investigating the feeding puzzle','contact calls toward nearby activity','fur arrangement after leaving water','moving between water and the dry ledge'],
+Raccoon:['flank movement in the nest','climbing the low branch','handling the feeding puzzle with forepaws','watching through the shelter opening','coat and forepaw appearance','settling in the covered platform'],
+Hedgehog:['body movement beneath the quills','uncurling and crossing the bedding','sniffing the shallow food dish','quill posture when activity passes','quill and facial appearance','burrowing into the covered nest'],
+Chinchilla:['flank movement in the hide','stepping between low shelves','examining the hay station','whisker movement toward a soft sound','dense coat and tail appearance','selecting the sheltered wooden ledge'],
+'Guinea Pig':['flank movement beside the hide','walking from shelter to shelter','investigating the hay pile','quiet calls toward familiar activity','coat around the mouth and feet','resting beside the covered hay area'],
+Capybara:['flank movement beside the pool','entering and leaving shallow water','browsing the feeding patch','orienting toward familiar companions','coat and foot appearance','choosing the bank-side resting area'],
+'Sugar Glider':['body movement inside the pouch','climbing the low branch network','investigating the feeding ledge','peeking from the pouch entrance','gliding-membrane and tail appearance','returning to the hanging sleep pouch'],
+Meerkat:['flank movement near the burrow','standing and changing lookout position','investigating the forage tray','watching familiar group activity','coat around the nose and paws','using the sheltered burrow entrance'],
+'Red Panda':['flank movement on the branch','balancing along the low log','investigating the browse station','turning toward the familiar keeper','tail coat and facial appearance','choosing the covered tree platform'],
+Lemur:['body movement on the platform','moving between climbing supports','investigating the feeding station','contact calls and tail carriage','facial coat and hand appearance','resting on a familiar social platform'],
+Sloth:['body movement on the resting support','shifting the resting grip','reaching toward the browse platform','turning slowly toward nearby activity','coat and claw appearance','choosing the sheltered branch fork'],
+Kangaroo:['body movement while settled','short hops and tail-supported pauses','investigating the browse patch','ear position toward nearby activity','hind-foot and tail appearance','resting in the sheltered open area'],
+Wallaby:['flank movement beside the hide','short hops along the familiar route','investigating the forage patch','ear movement toward the keeper','coat and hind-foot appearance','selecting the shaded resting corner'],
+Alpaca:['rib movement while standing','placing each foot along the pen','investigating the forage rack','head and ear position toward companions','fleece and lower-leg appearance','choosing the quiet herd-side shelter'],
+'Miniature Pig':['flank movement in the nest','walking between the bed and forage tray','rooting through the feeding puzzle','snout orientation toward the keeper','skin and hoof appearance','rearranging the sheltered bedding'],
+Deer:['rib movement beside the shelter','placing weight during quiet steps','browsing the feeding branches','ear and head position toward movement','coat and lower-leg appearance','choosing the screened resting area'],
+Zebra:['rib movement during a quiet pause','placing each hoof on the pen path','investigating the forage station','ear position toward nearby herd sounds','stripe coat and hoof appearance','standing near the familiar herd-side partition'],
+Giraffe:['chest movement during a standing pause','placing long steps between platforms','reaching toward the browse rack','head and ear orientation toward the keeper','coat and lower-limb appearance','choosing the tall sheltered resting bay'],
+Elephant:['chest movement while resting','weight shifts and deliberate steps','exploring the feeding station with the trunk','trunk gestures toward the familiar keeper','skin folds and foot appearance','choosing the familiar sheltered sand area'],
+Tiger:['flank movement on the resting platform','paw placement along the enclosure path','scenting the feeding hatch','ear and tail position toward nearby sounds','striped coat and paw appearance','choosing the screened den platform'],
+'Snow Leopard':['flank movement on the rock ledge','balancing across the low rock route','scenting the feeding platform','tail position during quiet observation','thick coat and broad-paw appearance','selecting the elevated sheltered ledge'],
+Bear:['flank movement inside the den','placing weight while walking the log route','investigating the forage puzzle','head position toward keeper activity','coat and paw-pad appearance','rearranging the secluded den bedding'],
+Seal:['body movement on the haul-out ledge','turning and steering in the pool','orienting toward the feeding station','head turns and quiet calls','skin and flipper appearance','moving between the pool and resting ledge'],
+Owl:['body movement while perched','balancing and shifting talon position','orienting toward the feeding station','head turns toward soft sounds','facial-disc and wing-feather appearance','choosing the screened perch'],
+Falcon:['body movement on the perch','balancing with wings folded','orienting toward the feeding platform','head tracking near the keeper','flight-feather and foot appearance','selecting the protected resting perch'],
+Macaw:['body movement on the branch','climbing and balancing with the beak','handling the feeding puzzle','contact calls and head-feather posture','wing and tail-feather arrangement','choosing the familiar high perch'],
+Penguin:['body movement on the dry ledge','walking and steering through the pool','orienting toward the feeding station','calling toward familiar colony sounds','feather arrangement after swimming','using the pool-exit resting ledge'],
+Flamingo:['body movement while standing','stepping and balancing in the shallows','sweeping the bill through the feeding area','head and neck position toward the group','feather and leg appearance','selecting a quiet shallow-water position'],
+Tortoise:['body movement at the shell opening','placing each foot beneath the shell','investigating the browse station','head extension toward familiar activity','shell-surface and limb appearance','choosing the sheltered enclosure corner'],
+Chameleon:['body movement along the branch','gripping with feet and curled tail','orienting toward the feeding station','eye and head orientation in the enclosure','skin and shedding appearance','selecting a screened climbing branch'],
+Gecko:['body movement inside the hide','placing feet along the low climbing route','orienting toward the feeding station','head turns toward nearby movement','skin and toe appearance','choosing a familiar sheltered crevice'],
+Snake:['body movement while loosely coiled','moving along the enclosure edge','orienting toward the familiar feeding area','tongue flicks while exploring','scale and shedding appearance','settling within the covered hide'],
+Axolotl:['external-gill movement in the water','walking along the tank floor','orienting toward the feeding location','head turns near familiar movement','gill-fringe and skin appearance','choosing the shaded aquatic hide'],
+Frog:['throat and body movement at rest','moving between familiar habitat positions','orienting toward the feeding area','body posture near enclosure activity','skin-surface and toe appearance','choosing the sheltered habitat ledge']
+};
+const OBS_DOMAINS=['Breathing / resting rhythm','Movement / balance','Feeding interest','Awareness / social response','Body surface','Habitat / settling'];
+const OBS_SCENES=[
+ ['Settles into an even resting pattern.','The resting pattern remains interrupted by brief restless pauses.','The resting pattern looks more settled than in the earlier scene.'],
+ ['Completes the familiar route without a scripted interruption.','Pauses repeatedly and does not finish the familiar route in this scene.','Completes more of the route with fewer pauses than before.'],
+ ['Approaches the feeding area and investigates the available food.','Approaches briefly, then turns away before engaging with the feeding activity.','Shows renewed interest and stays at the feeding area longer than before.'],
+ ['Acknowledges familiar activity, then returns attention to the surroundings.','Keeps a withdrawn or restless posture instead of engaging with familiar activity.','Re-engages with the familiar keeper or surroundings after an earlier withdrawn period.'],
+ ['No new surface change is introduced in this authored scene.','The case-related surface concern remains visible; the scene marks it for review.','The earlier surface concern looks less prominent in this authored scene.'],
+ ['Uses the familiar resting area and stays settled there.','Changes position repeatedly and does not settle in the preferred resting area.','Returns to the familiar resting area and settles for longer than in the earlier scene.']
+];
+function roData(r){r.observationBook=r.observationBook||{reports:[],captured:[]};return r.observationBook}
+function roMetrics(r,p){return {comfort:Math.round(r.comfort??50),stress:Math.round(r.stress??50),wellness:Math.round(p.wellness??50),burden:Math.round(r.crisisBurden??0)}}
+function roFingerprint(r,p){return JSON.stringify([S.day,r.round,roMetrics(r,p),r.status])}
+function roGenerate(r){
+  const p=S.patients.find(x=>x.id===r.patientId);if(!p)return null;
+  const b=roData(r),fingerprint=roFingerprint(r,p),last=b.reports.at(-1);if(last?.fingerprint===fingerprint)return last;
+  const m=roMetrics(r,p),prior=last?.metrics;
+  const gain=prior?(m.comfort-prior.comfort)+(prior.stress-m.stress)+(m.wellness-prior.wellness):0;
+  const score=m.comfort*.55+(100-m.stress)*.3+m.wellness*.15-m.burden*.2;
+  const cues=RECOVERY_CUES[p.species]||RECOVERY_CUES.Dog;
+  const entries=cues.map((cue,i)=>{
+    const concerning=score<(i===0||i===1?36:44);
+    const state=concerning?'Concern':gain>=5?'Improving':'Steady';
+    const scene=OBS_SCENES[i][concerning?1:gain>=5?2:0];
+    const detail=p.name+' — '+cue+': '+scene;
+    return {domain:OBS_DOMAINS[i],cue,state,detail};
+  });
+  const changes=prior?Object.entries(m).filter(([k,v])=>v!==prior[k]).map(([k,v])=>k+': '+prior[k]+' → '+v):[];
+  const report={id:r.id+'-obs-'+(b.sequence=(b.sequence||0)+1),fingerprint,day:S.day,round:r.round||1,at:new Date().toISOString(),metrics:m,entries,changes,caseName:DIAGNOSES.find(d=>d.id===r.dxId)?.name||'Recovery case'};
+  b.reports.push(report);b.reports=b.reports.slice(-12);return report;
+}
+function roText(r,report){const p=S.patients.find(p=>p.id===r.patientId);return [p.name+' · '+p.species+' · '+(p.breed||''),'Authored simulator observation · Day '+report.day+' · Round '+report.round,report.caseName,...report.entries.map(e=>e.domain+' ['+e.state+']: '+e.detail),'Game measures: comfort '+report.metrics.comfort+', stress '+report.metrics.stress+', wellness '+report.metrics.wellness+', crisis burden '+report.metrics.burden,report.changes.length?'Since previous observation: '+report.changes.join('; '):'No measured change recorded since the previous observation.'].join('\n')}
+function roObserve(id){const r=S.recoveryWard.find(x=>x.id===id);if(!r||r.status==='Discharged')return;const count=roData(r).sequence;roGenerate(r);save();drawRecoveryWard();toast(count===roData(r).sequence?'No new change since the last observation.':'New observation report recorded.')}
+function roCapture(id,index=-1){
+  const r=S.recoveryWard.find(x=>x.id===id);if(!r)return;const b=roData(r),report=b.reports.at(-1)||roGenerate(r);if(!report)return;
+  const key=report.id+':'+index;if(b.captured.includes(key)){toast('This observation is already in the notebook.');return}
+  const text=index<0?roText(r,report):report.entries[index]?.detail;if(!text)return;
+  const old=rnRead(r.patientId);rnAdd(index<0?'Recovery observation report':report.entries[index].domain,text,r.patientId);
+  if(rnRead(r.patientId)===old){toast('Observation was not saved. Open the notebook to copy or download it.');return}
+  b.captured.push(key);b.captured=b.captured.slice(-100);recordWardEvent(r.patientId,'Recovery observation captured',text);save();drawRecoveryWard();
+}
+function roMarkup(r){
+  const report=roGenerate(r);if(!report)return '';const b=roData(r),p=S.patients.find(p=>p.id===r.patientId),id=dxEscape(r.id);
+  return '<section class="roPanel"><div class="overline">Visible recovery observations</div><h3>'+dxEscape(p.species)+' bedside report</h3><p class="muted">Authored scenes based on game state · Round '+report.round+'. Observation does not advance time or change patient stats.</p><p><strong>Case:</strong> '+dxEscape(report.caseName)+'</p><div class="roSummary">'+(report.changes.length?dxEscape(report.changes.join(' · ')):'Baseline report / no new game-measure change.')+'</div><div class="roGrid">'+report.entries.map((e,i)=>'<article class="roEntry"><strong>'+dxEscape(e.domain)+'</strong><span class="roBadge '+(e.state==='Concern'?'roConcern':'')+'">'+e.state+'</span><p>'+dxEscape(e.detail)+'</p><button class="btn sec" onclick="roCapture(\''+id+'\','+i+')">'+(b.captured.includes(report.id+':'+i)?'✓ In notes':'+ Add observation to notes')+'</button></article>').join('')+'</div><div class="caseActionBar"><button class="btn" onclick="roObserve(\''+id+'\')">Observe patient again</button><button class="btn sec" onclick="roCapture(\''+id+'\')">Add complete report to notes</button></div><details><summary>Earlier observations · '+b.reports.length+' saved reports</summary>'+b.reports.slice(0,-1).reverse().map(x=>'<article class="roEntry"><strong>Day '+x.day+' · Round '+x.round+'</strong><pre>'+dxEscape(roText(r,x))+'</pre></article>').join('')+'</details></section>';
+}
+const roWardPrevious=drawRecoveryWard;
+drawRecoveryWard=function(){roWardPrevious();const active=S.recoveryWard.filter(r=>r.status!=='Discharged'&&S.patients.some(p=>p.id===r.patientId));let added=false;document.querySelectorAll('#recoveryWard .wardPatient').forEach((card,i)=>{const r=active[i];if(!r)return;const count=roData(r).sequence;const panel=document.createElement('div');panel.innerHTML=roMarkup(r);const anchor=card.querySelector('.investigateGrid');if(anchor)anchor.before(panel);else card.append(panel);if(roData(r).sequence!==count)added=true});if(added)save()};
+const roCaseReportPrevious=cbReportSections;
+cbReportSections=function(id){let html=roCaseReportPrevious(id);const reports=S.recoveryWard.filter(r=>r.patientId===id&&r.observationBook?.reports.length);if(reports.length)html+='<section><h2>Recovery observation reports</h2>'+reports.map(r=>roData(r).reports.map(x=>'<article><pre>'+dxEscape(roText(r,x))+'</pre></article>').join('')).join('')+'</section>';return html};
+const roWorkspacePrevious=showCaseWorkspace;
+showCaseWorkspace=function(tab){roWorkspacePrevious(tab);if(tab!=='observations'||!animalNoteId)return;let panel=document.getElementById('roNotebookReports');if(!panel){panel=document.createElement('div');panel.id='roNotebookReports';notePanes.observations.prepend(panel)}const r=S.recoveryWard.find(r=>r.patientId===animalNoteId);panel.innerHTML=r?roMarkup(r):'<p class="card">Species-specific bedside reports appear here once this patient enters recovery. Your own observations can be recorded below.</p>';if(r)save()};
+const roStyle=document.createElement('style');roStyle.textContent='.roPanel{margin:18px 0;padding:14px;border:1px solid #3b6a67;border-radius:12px;background:#102526}.roPanel h3{margin:6px 0}.roGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}.roEntry{padding:12px;border-radius:9px;border:1px solid #355051;background:#132022;min-width:0}.roEntry p{line-height:1.55;font-size:13px}.roEntry pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}.roBadge{display:inline-block;margin:6px 0 0 7px;font-size:11px;color:#94e3be}.roConcern{color:#ffb194}.roSummary{padding:9px;background:#1d3433;border-radius:7px;font-size:12px}.roPanel .btn{font-size:12px}.roPanel .caseActionBar{display:flex;flex-wrap:wrap;gap:8px}@media(max-width:650px){.roGrid{grid-template-columns:1fr}.roPanel{padding:10px}}';document.head.append(roStyle);
+
+</script>
+<script>
+/* Sending home is an explicit case disposition; records remain available. */
+let homeCaseId=null;
+function openSendHome(id){
+  const r=S.recoveryWard.find(x=>x.id===id),p=S.patients.find(p=>p.id===r?.patientId);if(!r||!p||r.status==='Discharged')return;
+  homeCaseId=id;let d=document.getElementById('sendHomeDialog');if(!d){d=document.createElement('dialog');d.id='sendHomeDialog';document.body.append(d)}
+  const report=roGenerate(r),missing=dischargeRequirement(r);
+  d.innerHTML='<header><h2>Send '+dxEscape(p.name)+' home</h2><button class="btn sec" onclick="document.getElementById(\'sendHomeDialog\').close()">Keep in recovery</button></header><p>'+dxEscape(p.species+' · '+p.breed)+'</p><div class="card"><strong>Current recovery status</strong><p>'+dxEscape(missing)+'</p><p>Game comfort '+r.comfort+'/100 · '+dxEscape(r.status)+'</p></div>'+(r.status==='Needs reassessment'?'<p class="card">A reassessment flag is still open. Sending home records this as an unresolved concern. You can also arrange a follow-up visit below.</p>':'')+'<label><input type="checkbox" id="homeFollowup" '+(r.followupBooked?'checked disabled':'')+'> Arrange a follow-up visit</label><label style="display:block;margin-top:12px">Home handover note<textarea id="homeHandover" rows="3" maxlength="2000" style="width:100%;box-sizing:border-box;font-size:16px" placeholder="Your optional note for the animal’s continuing story"></textarea></label><p>Notes, observations, and history stay in the patient record. Unfinished checks are recorded rather than silently marked complete.</p><button class="btn" onclick="confirmSendHome()">Send home & save case</button><button class="btn sec" onclick="document.getElementById(\'sendHomeDialog\').close()">Keep in recovery</button>';
+  d.showModal();
+}
+function confirmSendHome(){
+  const r=S.recoveryWard.find(x=>x.id===homeCaseId),p=S.patients.find(p=>p.id===r?.patientId);if(!r||!p||r.status==='Discharged')return;
+  if(document.getElementById('homeFollowup').checked&&!r.followupBooked){bookWardFollowup(r.id);if(!r.followupBooked){toast('Could not arrange the selected follow-up. The animal remains in recovery.');return}}
+  const statusBefore=r.status,requirements=dischargeRequirement(r),report=roGenerate(r),handover=document.getElementById('homeHandover').value.trim();
+  const text=['Sent home · '+p.name+' · '+p.species,'Status before leaving: '+statusBefore,requirements,'Follow-up: '+(r.followupBooked?'arranged':'not booked'),'Handover: '+(handover||'No additional note.'),report?roText(r,report):''].join('\n');
+  r.status='Discharged';r.disposition='Sent home';r.sentHomeDay=S.day;r.dischargedDay=S.day;r.homeSummary=text;r.unresolvedAtHome=statusBefore==='Needs reassessment';
+  S.stats.recoveryDischarges=(S.stats.recoveryDischarges||0)+1;S.stats.sentHome=(S.stats.sentHome||0)+1;
+  recordWardEvent(p.id,'Sent home',text);rnAdd('Home handover',text,p.id);
+  carePay({apptId:r.apptId},p,'discharge','Completed home handover',150);
+  document.getElementById('sendHomeDialog').close();homeCaseId=null;checkpointCase();drawHomeDesk();toast(p.name+' has been sent home. The patient record is saved.');
+}
+const homeWardPrevious=drawRecoveryWard;
+drawRecoveryWard=function(){homeWardPrevious();const active=S.recoveryWard.filter(r=>r.status!=='Discharged'&&S.patients.some(p=>p.id===r.patientId));document.querySelectorAll('#recoveryWard .wardPatient').forEach((card,i)=>{const r=active[i];if(!r)return;for(const b of card.querySelectorAll('button')){const action=b.getAttribute('onclick')||'';if(action.startsWith('dischargeWardCase(')&&!action.includes(',true')){b.textContent='Send home';b.disabled=false;b.onclick=()=>openSendHome(r.id)}}});
+  let history=document.getElementById('sentHomeHistory');if(history)history.remove();history=document.createElement('details');history.id='sentHomeHistory';const cases=S.recoveryWard.filter(r=>r.status==='Discharged').slice(0,20);history.innerHTML='<summary>Home / completed-case records · '+cases.length+'</summary>'+cases.map(r=>{const p=S.patients.find(p=>p.id===r.patientId);return '<article class="card"><strong>'+dxEscape(p?.name||r.patientId)+' · '+dxEscape(r.disposition||'Completed care')+'</strong><p>Day '+(r.sentHomeDay||r.dischargedDay||r.day)+(r.unresolvedAtHome?' · Reassessment flag recorded':'')+'</p><button class="btn sec" onclick="openAnimalNotes(\''+dxEscape(r.patientId)+'\')">Open saved notes & observations</button></article>'}).join('');wardBox.append(history);
+};
+const homeNextPrevious=epNextFor;
+epNextFor=function(id){const result=homeNextPrevious(id);if(result[0]==='Review the patient’s continuing story'){const r=S.recoveryWard.filter(r=>r.patientId===id).at(-1);if(r?.disposition==='Sent home')return ['Sent home · patient record saved','Review the home handover, recovery observations, and continuing notes.','Open patient record']}return result};
+const homeReportPrevious=cbReportSections;
+cbReportSections=function(id){return homeReportPrevious(id)+S.recoveryWard.filter(r=>r.patientId===id&&r.homeSummary).map(r=>'<section><h2>Home handover</h2><pre>'+dxEscape(r.homeSummary)+'</pre></section>').join('')};
 
 </script>
 </body></html>
